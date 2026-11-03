@@ -1,0 +1,1 @@
+# Signals no longer required for login module

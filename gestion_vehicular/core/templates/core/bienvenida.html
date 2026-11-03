@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+
+            <!-- Tarjeta de Bienvenida Principal -->
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                <div class="card-header bg-gradient bg-primary text-white p-4">
+                    <div class="d-flex flex-column flex-sm-row align-items-center gap-3">
+                        <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center shadow" style="width: 70px; height: 70px; font-size: 1.8rem; font-weight: 800;">
+                            {{ user.correo|make_list|first|upper }}
+                        </div>
+                        <div class="text-center text-sm-start flex-grow-1">
+                            <span class="badge bg-light text-dark px-3 py-1 mb-1 fw-bold fs-6">
+                                <i class="bi bi-shield-check text-success me-1"></i> Rol: {{ rol }}
+                            </span>
+                            <h3 class="mb-0 fw-bold">{{ nombre_completo }}</h3>
+                            <small class="opacity-75"><i class="bi bi-envelope-at me-1"></i> {{ correo }}</small>
+                        </div>
+                        <div class="text-sm-end mt-2 mt-sm-0">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                                <i class="bi bi-circle-fill me-1" style="font-size: 0.6rem;"></i> Sesión Activa
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4 bg-white">
+                    <h5 class="fw-bold text-secondary mb-3">
+                        <i class="bi bi-person-badge-fill me-2 text-primary"></i> Datos del Usuario Autenticado
+                    </h5>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <small class="text-muted d-block fw-semibold">Correo Institucional</small>
+                                <span class="fw-bold text-dark">{{ correo }}</span>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <small class="text-muted d-block fw-semibold">Rol en el Sistema</small>
+                                <span class="fw-bold text-primary">{{ rol }}</span>
+                            </div>
+                        </div>
+
+                        {% for etiqueta, valor in detalles %}
+                        <div class="col-sm-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <small class="text-muted d-block fw-semibold">{{ etiqueta }}</small>
+                                <span class="fw-bold text-dark">{{ valor }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        <div class="col-sm-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <small class="text-muted d-block fw-semibold">Estado de la Cuenta</small>
+                                <span class="badge bg-success">Activa / Verificada</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulo de Autenticación Resumen -->
+                    <div class="p-3 rounded-3 border-start border-4 border-success bg-success-subtle mb-4">
+                        <h6 class="fw-bold text-success-emphasis mb-2">
+                            <i class="bi bi-check2-circle me-1"></i> Módulo de Autenticación Funcional
+                        </h6>
+                        <ul class="mb-0 small text-success-emphasis ps-3">
+                            <li>Autenticación segura restringida a correos institucionales <code>@unl.edu.ec</code>.</li>
+                            <li>Identificación y asignación dinámica de roles (Administrador, Docente, Estudiante, Conductor).</li>
+                            <li>Protección de rutas contra accesos no autorizados (Decoradores de Login y Mixins).</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 border-top">
+                        <span class="text-muted small">
+                            <i class="bi bi-clock-history me-1"></i> Conectado el {% now "d/m/Y H:i" %}
+                        </span>
+
+                        <div class="d-flex gap-2">
+                            {% if is_staff %}
+                            <a href="/admin/" class="btn btn-outline-dark btn-sm fw-semibold">
+                                <i class="bi bi-speedometer2 me-1"></i> Django Admin
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'logout' %}" class="btn btn-danger btn-sm fw-bold px-3">
+                                <i class="bi bi-box-arrow-right me-1"></i> Cerrar Sesión
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Footer Institucional -->
+            <div class="text-center text-muted small">
+                Sistema de Gestión de Transporte &bull; Universidad Nacional de Loja &bull; 2026
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
