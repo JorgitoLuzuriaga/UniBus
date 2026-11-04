@@ -1,80 +1,49 @@
-{% extends 'base.html' %}
-{% load static %}
+{% extends 'registration/base_auth.html' %}
 
-{% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-5">
-            <div class="text-center mb-4">
-                <img src="{% static 'img/logo.png' %}" alt="Logo UNL" height="80" class="mb-3">
-                <h3 class="fw-bold text-dark">Gestión de Transporte</h3>
-                <p class="text-muted">Ingresa tus credenciales institucionales</p>
-            </div>
+{% block title %}Iniciar sesión{% endblock %}
 
-            <div class="card shadow-lg border-0 rounded-4">
-                <div class="card-body p-5">
+{% block auth_form %}
+<h1 class="h3 fw-bold mb-1">Iniciar sesión</h1>
+<p class="text-muted mb-4">Usa tu correo institucional <strong>@unl.edu.ec</strong>.</p>
 
-                    {% if form.errors %}
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="bi bi-exclamation-circle-fill"></i>
-                            <strong>Error de acceso:</strong>
-                            <ul class="mb-0 small ps-3">
-                                {% for field in form %}
-                                    {% for error in field.errors %}
-                                        <li>{{ error }}</li>
-                                    {% endfor %}
-                                {% endfor %}
-                                {% for error in form.non_field_errors %}
-                                    <li>{{ error }}</li>
-                                {% endfor %}
-                            </ul>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endif %}
-
-                    <form method="post">
-                        {% csrf_token %}
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-secondary">Correo Institucional</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope"></i></span>
-                                {{ form.username }}
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-secondary">Contraseña</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock"></i></span>
-                                {{ form.password }}
-                            </div>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="remember">
-                                <label class="form-check-label text-muted small" for="remember">Recordarme</label>
-                            </div>
-                            <a href="{% url 'password_reset' %}" class="text-decoration-none small fw-bold text-primary">
-                                ¿Olvidaste tu contraseña?
-                            </a>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm rounded-pill">
-                                INGRESAR <i class="bi bi-box-arrow-in-right"></i>
-                            </button>
-                        </div>
-
-                    </form>
-                    </div>
-            </div>
-
-            <div class="text-center mt-4 text-muted small">
-                &copy; 2026 Universidad Nacional de Loja
-            </div>
-        </div>
+{% if form.non_field_errors %}
+<div class="alert alert-danger d-flex gap-2 align-items-start" role="alert">
+    <i class="bi bi-exclamation-circle-fill"></i>
+    <div>
+        {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
     </div>
 </div>
+{% endif %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold" for="{{ form.username.id_for_label }}">Correo institucional</label>
+        <div class="input-group">
+            <span class="input-group-text bg-white"><i class="bi bi-envelope"></i></span>
+            {{ form.username }}
+        </div>
+        {% for error in form.username.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label fw-semibold" for="{{ form.password.id_for_label }}">Contraseña</label>
+        <div class="input-group">
+            <span class="input-group-text bg-white"><i class="bi bi-lock"></i></span>
+            {{ form.password }}
+            <button class="btn btn-toggle" type="button" data-toggle-password="{{ form.password.id_for_label }}" aria-label="Mostrar contraseña">
+                <i class="bi bi-eye"></i>
+            </button>
+        </div>
+        {% for error in form.password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="text-end mb-4">
+        <a href="{% url 'password_reset' %}" class="small fw-semibold text-decoration-none">¿Olvidaste tu contraseña?</a>
+    </div>
+
+    <button type="submit" class="btn btn-brand btn-lg w-100">Ingresar</button>
+</form>
 {% endblock %}
