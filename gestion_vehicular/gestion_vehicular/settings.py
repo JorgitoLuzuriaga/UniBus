@@ -132,11 +132,11 @@ LOGIN_URL = '/login/'
 
 # UNIFIED EMAIL CONFIGURATION (SMTP - Secure Production Mode)
 # Forces Port 465 and SSL to bypass Render's outward Port 587 security block blocks
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = '://gmail.com'
-EMAIL_PORT = 465
-EMAIL_USE_TLS = False
-EMAIL_USE_SSL = True
+# Servidor real para correos institucionales de la UNL (Office 365)
+EMAIL_HOST = '://office365.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = f'Gestión de Transporte UNL <{EMAIL_HOST_USER}>'
