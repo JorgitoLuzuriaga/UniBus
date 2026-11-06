@@ -133,7 +133,7 @@ LOGIN_URL = '/login/'
 # UNIFIED EMAIL CONFIGURATION (SMTP - Secure Production Mode)
 # Forces Port 465 and SSL to bypass Render's outward Port 587 security block blocks
 # Servidor real para correos institucionales de la UNL (Office 365)
-EMAIL_HOST = '://office365.com'
+EMAIL_HOST = config('EMAIL_HOST', default='://office365.com')
 EMAIL_PORT = 465
 EMAIL_USE_TLS = False
 EMAIL_USE_SSL = True
