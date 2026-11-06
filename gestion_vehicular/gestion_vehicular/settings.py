@@ -134,9 +134,9 @@ LOGIN_URL = '/login/'
 # Forces Port 465 and SSL to bypass Render's outward Port 587 security block blocks
 # Servidor real para correos institucionales de la UNL (Office 365)
 EMAIL_HOST = '://office365.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False
+EMAIL_PORT = 465
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = f'Gestión de Transporte UNL <{EMAIL_HOST_USER}>'
