@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card shadow border-0 h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Detalles de la Reserva #{{ reserva.id }}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <small class="text-muted d-block">Solicitante</small>
+                            <strong>{{ reserva.solicitante.getNombreCompleto }}</strong>
+                        </li>
+                        <li class="list-group-item">
+                            <small class="text-muted d-block">Destino</small>
+                            {{ reserva.destino_canton }} ({{ reserva.destino_parroquia }})
+                        </li>
+                        <li class="list-group-item">
+                            <small class="text-muted d-block">Fecha Salida</small>
+                            {{ reserva.fechaInicio|date:"d M Y, H:i" }}
+                        </li>
+                        <li class="list-group-item">
+                            <small class="text-muted d-block">Fecha Retorno</small>
+                            {{ reserva.fechaFin|date:"d M Y, H:i" }}
+                        </li>
+                        <li class="list-group-item">
+                            <small class="text-muted d-block">Vehículo / Conductor</small>
+                            {% if reserva.vehiculo %}
+                                {{ reserva.vehiculo.modelo }} ({{ reserva.vehiculo.placa }}) <br>
+                                <span class="text-primary">{{ reserva.conductor.getNombreCompleto|default:"Sin Conductor" }}</span>
+                            {% else %}
+                                <span class="text-danger">No asignado</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item">
+                            <small class="text-muted d-block">Estado Actual</small>
+                            <span class="badge bg-secondary">{{ reserva.get_estado_display }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow border-success h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Informe de Fin de Viaje</h5>
+                </div>
+                <div class="card-body">
+                    {% if informe %}
+                        <div class="alert alert-light border">
+                            <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
+                                <span class="text-muted">Enviado el:</span>
+                                <strong>{{ informe.fecha_registro|date:"d/m/Y H:i" }}</strong>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold text-success d-block">Kilometraje Final Registrado</label>
+                                <span class="fs-4">{{ informe.kilometraje_final }} km</span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold text-success d-block">Nivel de Combustible</label>
+                                <span class="badge bg-warning text-dark border border-dark">{{ informe.nivel_combustible }}</span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold text-success d-block">Novedades / Incidentes</label>
+                                <div class="p-3 bg-light rounded border">
+                                    {% if informe.novedades %}
+                                        {{ informe.novedades|linebreaks }}
+                                    {% else %}
+                                        <em class="text-muted">Sin novedades reportadas.</em>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-hourglass-split display-1 text-muted opacity-25"></i>
+                            <h4 class="mt-3 text-muted">Informe Pendiente</h4>
+                            <p>El conductor aún no ha finalizado el viaje o no ha enviado el reporte.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

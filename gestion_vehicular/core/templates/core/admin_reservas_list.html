@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0 fw-bold"><i class="bi bi-calendar-check-fill text-primary"></i> Gestión de Reservas</h2>
+            <p class="text-muted mb-0">Administra las solicitudes, asignaciones e informes de viaje.</p>
+        </div>
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary rounded-pill">
+            <i class="bi bi-arrow-left"></i> Volver al Dashboard
+        </a>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col" class="ps-4">ID</th>
+                            <th scope="col">Fecha Salida</th>
+                            <th scope="col">Solicitante</th>
+                            <th scope="col">Destino</th>
+                            <th scope="col">Vehículo / Chofer</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col" class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reservas %}
+                        <tr>
+                            <td class="ps-4 fw-bold">#{{ r.id }}</td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-bold">{{ r.fechaInicio|date:"d M, Y" }}</span>
+                                    <small class="text-muted">{{ r.fechaInicio|date:"H:i" }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-light text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                        {{ r.solicitante.nombres|make_list|first }}{{ r.solicitante.apellidos|make_list|first }}
+                                    </div>
+                                    <small>{{ r.solicitante.getNombreCompleto|truncatechars:20 }}</small>
+                                </div>
+                            </td>
+                            <td>{{ r.destino_canton }}</td>
+                            <td>
+                                {% if r.vehiculo %}
+                                    <span class="badge bg-light text-dark border">{{ r.vehiculo.placa }}</span>
+                                    {% if r.conductor %}
+                                        <div class="small text-muted mt-1"><i class="bi bi-person-badge"></i> {{ r.conductor.nombres }}</div>
+                                    {% else %}
+                                        <div class="small text-danger mt-1"><i class="bi bi-exclamation-circle"></i> Sin Chofer</div>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Sin Asignar</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.estado == 'FINALIZADA' %}
+                                    <span class="badge bg-secondary"><i class="bi bi-flag-fill"></i> Finalizada</span>
+                                {% elif r.estado == 'ACEPTADA' %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Confirmada</span>
+                                {% elif r.estado == 'ESPERA_CONDUCTOR' %}
+                                    <span class="badge bg-info text-dark"><i class="bi bi-hourglass-split"></i> Esperando Chofer</span>
+                                {% elif r.estado == 'ESPERA_ADMIN' %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Pendiente</span>
+                                {% elif r.estado == 'CHOFER_RECHAZO' %}
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Chofer Rechazó</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ r.get_estado_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex justify-content-end gap-2">
+
+                                    <a href="{% url 'admin_reserva_detalle' r.id %}" class="btn btn-info btn-sm text-white" title="Ver Detalles e Informe">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </a>
+
+                                    <a href="{% url 'gestionar_reserva' r.id %}" class="btn btn-primary btn-sm" title="Gestionar / Asignar">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+
+                                    <a href="{% url 'eliminar_reserva' r.id %}" class="btn btn-danger btn-sm" title="Eliminar Reserva">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox display-4 d-block mb-3 opacity-25"></i>
+                                No hay reservas registradas en el sistema.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

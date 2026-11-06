@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary px-4 mb-4 shadow rounded-bottom">
+    <a class="navbar-brand fw-bold" href="{% url 'docente_home' %}">
+        <img src="{% static 'img/logo.png' %}" alt="UNL" height="45" class="d-inline-block align-text-top me-2 bg-white rounded-circle p-1">
+        Panel Docente
+    </a>
+    <div class="ms-auto">
+        <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm fw-bold">Salir</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="mb-3">
+        <a href="{% url 'docente_home' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left-circle-fill"></i> Volver al Inicio
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow border-0 mb-5">
+                <div class="card-header bg-primary text-white py-3">
+                    <h4 class="mb-0"><i class="bi bi-bus-front-fill"></i> Nueva Solicitud de Transporte</h4>
+                </div>
+
+                <div class="card-body p-4">
+                    <form method="post" id="form-reserva">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <h5 class="text-primary border-bottom pb-2 mb-3">1. Datos Generales</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Motivo</label>
+                            {{ form.motivo }}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                 <label class="form-label fw-bold">Pasajeros</label>
+                                 {{ form.aforo }}
+                            </div>
+                             <div class="col-md-4 mb-3">
+                                 <label class="form-label fw-bold">Salida</label>
+                                 {{ form.fechaInicio }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                 <label class="form-label fw-bold">Retorno</label>
+                                 {{ form.fechaFin }}
+                            </div>
+                        </div>
+
+                        <h5 class="text-primary border-bottom pb-2 mt-4 mb-3">2. Ubicación</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Cantón</label>
+                                {{ form.destino_canton }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Parroquia</label>
+                                {{ form.destino_parroquia }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Calle Principal</label>
+                                {{ form.destino_calle_principal }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Calle Secundaria</label>
+                                {{ form.destino_calle_secundaria }}
+                            </div>
+                        </div>
+
+                        <h5 class="text-primary border-bottom pb-2 mt-4 mb-3">3. Estudiantes</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Filtrar por Carrera:</label>
+                            {{ form.carrera_filtro }}
+                        </div>
+
+                        <div class="mb-3 border p-3 rounded" style="max-height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                            <label class="form-label fw-bold mb-2 text-muted">Seleccione los estudiantes:</label>
+
+                            <div id="lista-estudiantes">
+                                {% for checkbox in form.estudiantes_seleccion %}
+                                    <div class="form-check estudiante-item py-1 border-bottom" data-carrera="{{ checkbox.data.value.instance.carrera }}">
+                                        {{ checkbox.tag }}
+                                        <label class="form-check-label ms-2" for="{{ checkbox.id_for_label }}">
+                                            <strong>{{ checkbox.choice_label }}</strong>
+                                            <span class="badge bg-light text-dark border ms-2">{{ checkbox.data.value.instance.get_carrera_display }}</span>
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div id="no-estudiantes-msg" class="text-center text-muted mt-4" style="display:none;">
+                                <i class="bi bi-people"></i> No hay estudiantes en esta carrera.
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-5">
+                            <button type="button" class="btn btn-primary btn-lg fw-bold shadow" onclick="validarYMostrarModal()">
+                                <i class="bi bi-check-circle-fill"></i> Verificar y Enviar Solicitud
+                            </button>
+                            <a href="{% url 'docente_home' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Confirmar Solicitud</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="fw-bold">Resumen del Viaje:</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Motivo:</strong> <span id="res-motivo"></span></li>
+            <li class="list-group-item"><strong>Salida:</strong> <span id="res-salida"></span></li>
+            <li class="list-group-item"><strong>Destino:</strong> <span id="res-destino"></span></li>
+            <li class="list-group-item"><strong>Estudiantes Seleccionados:</strong> <span id="res-estudiantes-count" class="badge bg-primary rounded-pill">0</span></li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Corregir</button>
+        <button type="button" class="btn btn-success fw-bold" onclick="enviarFormularioReal()">
+            <i class="bi bi-save"></i> Guardar Reserva
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    // Lógica para filtrar estudiantes
+    document.getElementById('id_carrera_filtro').addEventListener('change', function() {
+        var carreraSeleccionada = this.value;
+        var estudiantes = document.getElementsByClassName('estudiante-item');
+        var visibles = 0;
+
+        for (var i = 0; i < estudiantes.length; i++) {
+            var carreraEstudiante = estudiantes[i].getAttribute('data-carrera');
+
+            if (carreraSeleccionada === "" || carreraEstudiante === carreraSeleccionada) {
+                estudiantes[i].style.display = 'block';
+                visibles++;
+            } else {
+                estudiantes[i].style.display = 'none';
+                estudiantes[i].querySelector('input').checked = false; // Desmarcar al ocultar
+            }
+        }
+
+        document.getElementById('no-estudiantes-msg').style.display = (visibles === 0) ? 'block' : 'none';
+    });
+
+    // Disparar al inicio
+    document.getElementById('id_carrera_filtro').dispatchEvent(new Event('change'));
+
+    function validarYMostrarModal() {
+        var form = document.getElementById('form-reserva');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        let motivo = document.getElementById('id_motivo').value;
+        let fechaInicio = document.getElementById('id_fechaInicio').value;
+        let canton = document.getElementById('id_destino_canton').value;
+        let checkboxes = document.querySelectorAll('input[name="estudiantes_seleccion"]:checked');
+
+        document.getElementById('res-motivo').textContent = motivo;
+        document.getElementById('res-salida').textContent = fechaInicio.replace("T", " ");
+        document.getElementById('res-destino').textContent = canton;
+        document.getElementById('res-estudiantes-count').textContent = checkboxes.length;
+
+        var myModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        myModal.show();
+    }
+
+    function enviarFormularioReal() {
+        document.getElementById('form-reserva').submit();
+    }
+</script>
+{% endblock %}

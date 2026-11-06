@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow border-0 rounded-4">
+                <div class="card-header bg-dark text-white text-center py-4 rounded-top-4">
+                    <div class="bg-white text-dark rounded-circle d-inline-flex align-items-center justify-content-center fw-bold mb-2 fs-2 shadow" style="width: 80px; height: 80px;">
+                        {{ user.correo|make_list|first|upper }}
+                    </div>
+                    <h4 class="mb-0">{{ user.nombre_completo }}</h4>
+                    <span class="badge bg-warning text-dark mt-2">{{ rol_usuario }}</span>
+                </div>
+                
+                <div class="card-body p-5">
+                    <h5 class="mb-4 text-muted border-bottom pb-2">Información Personal</h5>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Correo Institucional</label>
+                            <input type="text" class="form-control bg-light" value="{{ email_usuario }}" disabled>
+                        </div>
+
+                        {% for field in form %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger small">{{ field.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+
+                        <div class="d-grid gap-2 mt-5">
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold rounded-pill">
+                                <i class="bi bi-save"></i> Guardar Cambios
+                            </button>
+                            <a href="{% url 'dashboard_redirect' %}" class="btn btn-outline-secondary rounded-pill">
+                                Volver al Inicio
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

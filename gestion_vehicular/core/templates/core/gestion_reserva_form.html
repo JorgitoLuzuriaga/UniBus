@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark fw-bold">
+                Gestionar Solicitud #{{ object.id }}
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Detalles del Viaje</h5>
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item"><strong>Solicitante:</strong> {{ object.solicitante }}</li>
+                    <li class="list-group-item"><strong>Fecha:</strong> {{ object.fechaInicio }} hasta {{ object.fechaFin }}</li>
+                    <li class="list-group-item"><strong>Motivo:</strong> {{ object.motivo }}</li>
+                    <li class="list-group-item"><strong>Pasajeros:</strong> {{ object.aforo }}</li>
+                </ul>
+
+                <hr>
+
+                <h5 class="card-title mb-3">Resolución y Asignación</h5>
+                <form method="post">
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="text-danger small">{{ field.errors }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">Guardar Resolución</button>
+                        <a href="{% url 'admin_reservas' %}" class="btn btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

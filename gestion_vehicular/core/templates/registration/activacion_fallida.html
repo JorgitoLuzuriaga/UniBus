@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="text-center mb-4">
+                <img src="{% static 'img/logo.png' %}" alt="Logo UNL" height="80" class="mb-3">
+            </div>
+
+            <div class="card shadow-lg border-0 rounded-4 text-center">
+                <div class="card-body p-5">
+                    <div class="mb-4 text-danger">
+                        <i class="bi bi-x-circle-fill" style="font-size: 4rem;"></i>
+                    </div>
+                    
+                    <h3 class="fw-bold text-dark mb-3">Enlace Inválido</h3>
+                    
+                    <p class="text-muted">
+                        El enlace de activación no es válido o ya ha expirado. Recuerda que cada token de seguridad institucional puede ser utilizado una sola vez.
+                    </p>
+
+                    <div class="alert alert-warning border-0 rounded-3 small text-start my-4">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Si aún no has activado tu cuenta, por favor solicita un nuevo registro en la plataforma.
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'registrar_usuario' %}" class="btn btn-outline-danger fw-bold rounded-pill">
+                            Intentar el Registro de Nuevo
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4 text-muted small">
+                &copy; 2026 Universidad Nacional de Loja
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

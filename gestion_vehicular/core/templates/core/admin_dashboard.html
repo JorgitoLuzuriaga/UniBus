@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary h-100 shadow border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Reservas</h5>
+                    <h2 class="display-4 fw-bold">{{ reservas_pendientes }}</h2>
+                    <p class="small">Pendientes</p>
+                </div>
+                <div class="card-footer bg-transparent border-0 text-end">
+                    <a href="{% url 'admin_reservas' %}" class="btn btn-light text-primary fw-bold w-100 stretched-link">Gestionar <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success h-100 shadow border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Vehículos</h5>
+                    <h2 class="display-4 fw-bold">{{ vehiculos_activos }}</h2>
+                    <p class="small">Activos</p>
+                </div>
+                <div class="card-footer bg-transparent border-0 text-end">
+                    <a href="{% url 'admin_vehiculos' %}" class="btn btn-light text-success fw-bold w-100 stretched-link">Flota <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-secondary h-100 shadow border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Usuarios</h5>
+                    <h2 class="display-4 fw-bold">{{ usuarios_totales }}</h2>
+                    <p class="small">Registrados</p>
+                </div>
+                <div class="card-footer bg-transparent border-0 text-end">
+                    <a href="{% url 'admin_usuarios' %}" class="btn btn-light text-dark fw-bold w-100 stretched-link">Ver Usuarios <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

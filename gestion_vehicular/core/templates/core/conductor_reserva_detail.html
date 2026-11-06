@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 mb-4 shadow rounded-bottom">
+    <a class="navbar-brand fw-bold" href="{% url 'conductor_home' %}">
+        <img src="{% static 'img/logo.png' %}" alt="UNL" height="45" class="d-inline-block align-text-top me-2 bg-white rounded-circle p-1">
+        Panel de Conductores
+    </a>
+    <div class="ms-auto">
+        <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm fw-bold">Salir</a>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="mb-4">
+        <a href="{% url 'conductor_home' %}" class="btn btn-secondary btn-sm shadow-sm">
+            <i class="bi bi-arrow-left"></i> Volver al Tablero
+        </a>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary"><i class="bi bi-map"></i> Hoja de Ruta</h2>
+        <span class="badge bg-success fs-5">Reserva #{{ reserva.id }}</span>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <strong><i class="bi bi-geo-alt-fill"></i> Destino y Ubicación</strong>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Cantón:</strong> {{ reserva.destino_canton }}</li>
+                        <li class="list-group-item"><strong>Parroquia:</strong> {{ reserva.destino_parroquia }}</li>
+                        <li class="list-group-item"><strong>Calle Principal:</strong> {{ reserva.destino_calle_principal }}</li>
+                        <li class="list-group-item"><strong>Referencia:</strong> {{ reserva.destino_calle_secundaria }}</li>
+                    </ul>
+                    <div class="mt-3">
+                        <a href="https://www.google.com/maps/search/?api=1&query={{ reserva.destino_canton }}+{{ reserva.destino_parroquia }}" target="_blank" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-google"></i> Ver Mapa
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-dark text-white">
+                    <strong><i class="bi bi-clock-fill"></i> Horarios y Responsable</strong>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Salida:</strong> {{ reserva.fechaInicio }}</li>
+                        <li class="list-group-item"><strong>Retorno Estimado:</strong> {{ reserva.fechaFin }}</li>
+                        <li class="list-group-item"><strong>Docente Encargado:</strong> {{ reserva.solicitante.getNombreCompleto }}</li>
+                        <li class="list-group-item"><strong>Vehículo:</strong> {{ reserva.vehiculo.placa }} ({{ reserva.vehiculo.modelo }})</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <h4 class="mb-3 text-secondary"><i class="bi bi-people-fill"></i> Pasajeros Confirmados</h4>
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped mb-0">
+                        <thead class="table-secondary">
+                            <tr>
+                                <th>Nombre Estudiante</th>
+                                <th>Carrera</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in reserva.asistencias.all %}
+                                {% if item.estado == 'CONFIRMADO' %}
+                                <tr>
+                                    <td>{{ item.estudiante.getNombreCompleto }}</td>
+                                    <td>{{ item.estudiante.get_carrera_display }}</td>
+                                    <td><span class="badge bg-success">Confirmado</span></td>
+                                </tr>
+                                {% endif %}
+                            {% empty %}
+                                <tr><td colspan="3" class="text-center py-3">No hay pasajeros confirmados aún.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

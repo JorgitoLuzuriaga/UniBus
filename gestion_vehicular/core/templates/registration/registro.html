@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="text-center mb-4">
+                <img src="{% static 'img/logo.png' %}" alt="Logo UNL" height="80" class="mb-3">
+                <h3 class="fw-bold text-dark">Gestión de Transporte</h3>
+                <p class="text-muted">Auto-registro de Cuenta Institucional</p>
+            </div>
+
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-body p-5">
+                    
+                    <!-- ALERTA DE ERRORES CORREGIDA (Muestra cualquier fallo de validación) -->
+                    {% if form.errors or form.non_field_errors %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-circle-fill"></i> <strong>Verifica los siguientes campos:</strong>
+                        <ul class="mb-0 small ps-3 mt-1">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- 1. Campo de Correo (Cambiado a form.username) -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-secondary">Correo Institucional</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope"></i></span>
+                                {{ form.username }}
+                            </div>
+                            <div class="form-text text-muted small mt-1">Debe terminar estrictamente en <strong>@unl.edu.ec</strong></div>
+                        </div>
+
+                        <!-- 2. Fila para Nombres y Apellidos -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-secondary">Nombres</label>
+                                {{ form.nombres }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-secondary">Apellidos</label>
+                                {{ form.apellidos }}
+                            </div>
+                        </div>
+
+                        <!-- 3. Campo de Cédula -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-secondary">Cédula de Identidad</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-card-text"></i></span>
+                                {{ form.cedula }}
+                            </div>
+                        </div>
+
+                        <!-- 4. Fila para Facultad y Carrera -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-secondary">Facultad</label>
+                                {{ form.facultad }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-secondary">Carrera</label>
+                                {{ form.carrera }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+    <label class="form-label fw-bold text-secondary">Tipo de Licencia</label>
+    <div class="input-group">
+        <span class="input-group-text bg-light border-end-0"><i class="bi bi-card-checklist"></i></span>
+        {{ form.tipo_licencia }}
+    </div>
+    <div class="form-text text-muted small mt-1">Opcional: Llenar únicamente si está aplicando para el rol de Conductor Institucional.</div>
+</div>
+
+                        <!-- 5. Campos de Contraseña -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-secondary">Contraseña</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock"></i></span>
+                                {{ form.password1 }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-secondary">Confirmar Contraseña</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock-fill"></i></span>
+                                {{ form.password2 }}
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm rounded-pill">
+                                REGISTRARME <i class="bi bi-person-plus-fill"></i>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <a href="{% url 'login' %}" class="text-decoration-none small fw-bold text-primary">
+                            <i class="bi bi-arrow-left"></i> Volver al Inicio de Sesión
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4 text-muted small">
+                &copy; 2026 Universidad Nacional de Loja
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

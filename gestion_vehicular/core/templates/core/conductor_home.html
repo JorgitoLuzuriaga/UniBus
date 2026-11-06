@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>👋 Hola, {{ user_name }}</h2>
+
+    {% if pendientes %}
+    <div class="card mb-4 border-warning">
+        <div class="card-header bg-warning text-dark"><strong>Solicitudes Pendientes</strong></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>Fecha</th><th>Destino</th><th>Vehículo</th><th>Acción</th></tr></thead>
+                    <tbody>
+                        {% for viaje in pendientes %}
+                        <tr>
+                            <td>{{ viaje.fechaInicio|date:"d M Y, H:i" }}</td>
+                            <td>{{ viaje.destino_canton }}</td>
+                            <td>{{ viaje.vehiculo }}</td>
+                            <td>
+                                <form method="post" class="d-flex gap-2">{% csrf_token %}<input type="hidden" name="reserva_id" value="{{ viaje.id }}"><button type="submit" name="accion" value="aceptar" class="btn btn-success btn-sm">Aceptar</button><button type="submit" name="accion" value="rechazar" class="btn btn-danger btn-sm">Rechazar</button></form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <h4 class="mt-4 mb-3 text-primary">Mis Viajes Confirmados</h4>
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0 align-middle">
+                    <thead class="table-dark"><tr><th>Fecha</th><th>Destino</th><th>Vehículo</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody>
+                        {% for viaje in confirmados %}
+                        <tr>
+                            <td>{{ viaje.fechaInicio|date:"d M Y, H:i" }}</td>
+                            <td>{{ viaje.destino_canton }}</td>
+                            <td>{{ viaje.vehiculo.modelo }}</td>
+                            <td>
+                                {% if viaje.estado == 'FINALIZADA' %}
+                                    <span class="badge bg-secondary">Finalizado</span>
+                                {% else %}
+                                    <span class="badge bg-success">Confirmado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'conductor_reserva_detalle' viaje.id %}" class="btn btn-primary btn-sm" title="Ver Hoja de Ruta">
+                                        <i class="bi bi-eye"></i> Detalles
+                                    </a>
+
+                                    {% if viaje.estado != 'FINALIZADA' %}
+                                    <a href="{% url 'crear_informe_viaje' viaje.id %}" class="btn btn-success btn-sm fw-bold" title="Finalizar Viaje">
+                                        <i class="bi bi-clipboard-check"></i> Informe
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}<tr><td colspan="5" class="text-center py-4 text-muted">No tienes viajes confirmados.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; }
+        .header { text-align: center; border-bottom: 2px solid #198754; padding-bottom: 15px; margin-bottom: 20px; }
+        .btn-success { display: inline-block; background-color: #198754; color: #ffffff !important; text-decoration: none; padding: 12px 25px; font-weight: bold; border-radius: 50px; margin: 15px 0; }
+        .footer { font-size: 12px; color: #777777; border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 25px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2 style="color: #198754; margin: 0;">Gestión de Transporte UNL</h2>
+            <span style="color: #6c757d; font-size: 14px;">Activación de Cuenta Institucional</span>
+        </div>
+
+        <p>Estimado(a) miembro de la comunidad universitaria,</p>
+        <p>Gracias por registrarte en la plataforma de <strong>Gestión de Transporte de la Universidad Nacional de Loja</strong>.</p>
+        
+        <p>Para verificar tu correo institucional y activar tu acceso al sistema, por favor haz clic en el siguiente botón:</p>
+        
+        <div style="text-align: center;">
+            <a href="{{ protocol }}://{{ domain }}/activar/{{ uid }}/{{ token }}/" class="btn-success">
+                Activar mi Cuenta Institucional
+            </a>
+        </div>
+
+        <p style="font-size: 13px; color: #6c757d;">Si el botón no funciona correctamente, copia y pega el siguiente enlace en tu navegador web:</p>
+        <p style="font-size: 13px; word-break: break-all;">
+            <a href="{{ protocol }}://{{ domain }}/activar/{{ uid }}/{{ token }}/">{{ protocol }}://{{ domain }}/activar/{{ uid }}/{{ token }}/</a>
+        </p>
+
+        <p>Si tú no solicitaste este registro, por favor ignora este mensaje.</p>
+
+        <div class="footer">
+            Atentamente,<br>
+            <strong>El equipo de Gestión de Transporte UNL</strong><br>
+            <span style="font-size: 11px;">Universidad Nacional de Loja &copy; 2026</span>
+        </div>
+    </div>
+</body>
+</html>

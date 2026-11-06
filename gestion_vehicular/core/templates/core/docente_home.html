@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="alert alert-light border shadow-sm mb-4">
+        <h4><i class="bi bi-mortarboard-fill text-primary"></i> Bienvenido, {{ user_name }}</h4>
+        <p class="mb-0 text-muted">{{ facultad }}</p>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card h-100 shadow border-0">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-bus-front-fill display-1 text-success mb-3"></i>
+                    <h3 class="card-title text-dark">Solicitar Transporte</h3>
+                    <a href="{% url 'solicitar_reserva' %}" class="btn btn-success btn-lg fw-bold px-5 mt-3 stretched-link rounded-pill">Nueva Solicitud</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100 shadow border-0">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-calendar-check-fill display-1 text-primary mb-3"></i>
+                    <h3 class="card-title text-dark">Mis Reservas</h3>
+                    <a href="{% url 'lista_reservas' %}" class="btn btn-primary btn-lg fw-bold px-5 mt-3 stretched-link rounded-pill">Ver Historial</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

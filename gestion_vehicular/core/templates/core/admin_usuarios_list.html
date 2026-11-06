@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 mb-4 shadow rounded-bottom">
+    <a class="navbar-brand fw-bold" href="{% url 'admin_dashboard' %}">
+        <img src="{% static 'img/logo.png' %}" alt="UNL" height="45" class="d-inline-block align-text-top me-2 bg-white rounded-circle p-1">
+        Panel Administrativo
+    </a>
+    <div class="ms-auto">
+        <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm fw-bold"><i class="bi bi-box-arrow-right"></i> Salir</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="mb-3">
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left-circle-fill"></i> Volver al Dashboard
+        </a>
+    </div>
+
+    <h2 class="mb-4"><i class="bi bi-people-fill"></i> Usuarios del Sistema</h2>
+
+    <div class="table-responsive bg-white rounded shadow-sm">
+        <table class="table table-hover align-middle">
+            <thead class="table-secondary">
+                <tr>
+                    <th>Email / Usuario</th>
+                    <th>Rol</th>
+                    <th>Nombre Completo</th>
+                    <th>Estado</th>
+                    <th>Fecha Registro</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td>{{ u.correo }}</td>
+                    <td>
+                        {% if u.rol_nombre == 'Administrador' %} <span class="badge bg-dark">Admin</span>
+                        {% elif u.rol_nombre == 'Docente' %} <span class="badge bg-primary">Docente</span>
+                        {% elif u.rol_nombre == 'Estudiante' %} <span class="badge bg-info text-dark">Estudiante</span>
+                        {% elif u.rol_nombre == 'Conductor' %} <span class="badge bg-warning text-dark">Conductor</span>
+                        {% else %} <span class="badge bg-secondary">Sin Perfil</span> {% endif %}
+                    </td>
+                    <td>{{ u.nombre_completo }}</td>
+                    <td>
+                        {% if u.activo %}
+                            <span class="text-success"><i class="bi bi-check-circle-fill"></i> Activo</span>
+                        {% else %}
+                            <span class="text-danger"><i class="bi bi-x-circle-fill"></i> Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ u.date_joined|date:"d M Y" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

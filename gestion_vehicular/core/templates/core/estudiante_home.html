@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3 class="mb-4 text-secondary">Mis Viajes Académicos</h3>
+    {% if mis_viajes %}
+    <div class="row g-4">
+        {% for item in mis_viajes %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100 {% if item.estado == 'CONFIRMADO' %}border-success{% elif item.estado == 'RECHAZADO' %}border-danger{% else %}border-warning{% endif %}">
+                <div class="card-header bg-white d-flex justify-content-between">
+                    <span class="fw-bold">{{ item.reserva.fechaInicio|date:"d M, Y" }}</span>
+                    {% if item.estado == 'CONFIRMADO' %}<span class="badge bg-success">Confirmado</span>
+                    {% elif item.estado == 'RECHAZADO' %}<span class="badge bg-danger">Rechazado</span>
+                    {% else %}<span class="badge bg-warning text-dark">Pendiente</span>{% endif %}
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title text-primary">{{ item.reserva.destino_canton }}</h5>
+                    <p class="small text-muted">{{ item.reserva.motivo|truncatechars:50 }}</p>
+
+                    {% if item.estado == 'SIN_RESPUESTA' %}
+                    <div class="d-grid gap-2">
+                        <form method="post">{% csrf_token %}<input type="hidden" name="asistencia_id" value="{{ item.id }}"><button type="submit" name="accion" value="confirmar" class="btn btn-success w-100">Confirmar</button></form>
+                        <form method="post">{% csrf_token %}<input type="hidden" name="asistencia_id" value="{{ item.id }}"><button type="submit" name="accion" value="rechazar" class="btn btn-outline-danger w-100">Rechazar</button></form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center">No tienes viajes asignados.</div>
+    {% endif %}
+</div>
+{% endblock %}

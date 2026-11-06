@@ -1,16 +1,19 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
-from core.models import (
+from .models import (
     Cuenta,
     Administrador,
     Docente,
     Estudiante,
-    Conductor,
+    Vehiculo,
+    Reserva,
+    Conductor,  # <--- Importamos Conductor
+    Universidad  # <--- Importamos Universidad
 )
 
 
-# --- FORMULARIO PERSONALIZADO DE CUENTA ---
+# --- FORMULARIO PERSONALIZADO ---
 class CuentaCreationForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput)
 
@@ -26,50 +29,86 @@ class CuentaCreationForm(forms.ModelForm):
         return user
 
 
-# --- CONFIGURACIÓN DE CUENTA EN DJANGO ADMIN ---
-class CuentaAdmin(BaseUserAdmin):
-    add_form = CuentaCreationForm
-    ordering = ('correo',)
-    list_display = (
-        'correo',
-        'rol_nombre',
-        'activo',
-        'is_staff',
-        'is_superuser'
-    )
-    list_filter = ('activo', 'is_staff')
+# --- CONFIGURACIÓN CUENTA ---
+@admin.register(Cuenta)
+class CuentaAdmin(admin.ModelAdmin):
+    list_display = ('correo', 'nombres', 'apellidos', 'rol_asignado', 'activo')
+    list_filter = ('rol_asignado', 'activo')
+    fields = ('correo', 'nombres', 'apellidos', 'cedula', 'rol_asignado', 'activo', 'is_staff', 'is_superuser')
 
-    fieldsets = (
-        (None, {'fields': ('correo', 'password')}),
-        ('Estado de la Cuenta', {'fields': ('activo',)}),
-        (
-            'Permisos de Acceso',
-            {
-                'fields': (
-                    'is_staff',
-                    'is_superuser',
-                    'groups',
-                    'user_permissions',
-                )
-            }
-        ),
-    )
+    def save_model(self, request, obj, form, change):
+        # Primero guardamos el estado de la cuenta
+        super().save_model(request, obj, form, change)
 
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('correo', 'password'),
-        }),
-    )
+        # Si el administrador aprueba/activa la cuenta, gestionamos el rol estrictamente
+        if obj.activo:
+            facultad_seleccionada = form.cleaned_data.get('facultad', 'RNR')
+            carrera_seleccionada = form.cleaned_data.get('carrera', 'COMPUTACION')
+            licencia_ingresada = form.cleaned_data.get('tipo_licencia', 'Tipo E')
 
-    search_fields = ('correo',)
-    filter_horizontal = ('groups', 'user_permissions')
-    list_per_page = 20
+            # --- CASO 1: SE ASIGNÓ ROL ESTUDIANTE ---
+            if obj.rol_asignado == Cuenta.RolesDisponibles.ESTUDIANTE:
+                # 1. Eliminamos perfiles de otros roles si existían previamente
+                if hasattr(obj, 'docente_perfil'):
+                    obj.docente_perfil.delete()
+                if hasattr(obj, 'conductor_perfil'):
+                    obj.conductor_perfil.delete()
+                
+                # 2. Creamos el perfil de estudiante si no lo tiene
+                if not hasattr(obj, 'estudiante_perfil'):
+                    Estudiante.objects.create(
+                        cuenta=obj, nombres=obj.nombres, apellidos=obj.apellidos,
+                        cedula=obj.cedula, facultad=facultad_seleccionada, carrera=carrera_seleccionada
+                    )
+
+            # --- CASO 2: SE ASIGNÓ ROL DOCENTE ---
+            elif obj.rol_asignado == Cuenta.RolesDisponibles.DOCENTE:
+                # 1. Limpieza de perfiles viejos
+                if hasattr(obj, 'estudiante_perfil'):
+                    obj.estudiante_perfil.delete()
+                if hasattr(obj, 'conductor_perfil'):
+                    obj.conductor_perfil.delete()
+                
+                # 2. Creamos el perfil docente
+                if not hasattr(obj, 'docente_perfil'):
+                    Docente.objects.create(
+                        cuenta=obj, nombres=obj.nombres, apellidos=obj.apellidos,
+                        cedula=obj.cedula, facultad=facultad_seleccionada, titulo='Docente UNL'
+                    )
+
+            # --- CASO 3: SE ASIGNÓ ROL CONDUCTOR ---
+            elif obj.rol_asignado == Cuenta.RolesDisponibles.CONDUCTOR:
+                # 1. Limpieza de perfiles viejos
+                if hasattr(obj, 'estudiante_perfil'):
+                    obj.estudiante_perfil.delete()
+                if hasattr(obj, 'docente_perfil'):
+                    obj.docente_perfil.delete()
+                
+                # 2. Creamos el perfil conductor
+                if not hasattr(obj, 'conductor_perfil'):
+                    Conductor.objects.create(
+                        cuenta=obj, nombres=obj.nombres, apellidos=obj.apellidos,
+                        cedula=obj.cedula, tipoLicencia=licencia_ingresada, disponibilidad=True
+                    )
+            
+            # --- CASO 4: SE REGRESÓ A PENDIENTE (NINGUNO) ---
+            elif obj.rol_asignado == Cuenta.RolesDisponibles.NINGUNO:
+                # Si el administrador decide retirar los roles, limpiamos todas las tablas
+                if hasattr(obj, 'estudiante_perfil'): obj.estudiante_perfil.delete()
+                if hasattr(obj, 'docente_perfil'): obj.docente_perfil.delete()
+                if hasattr(obj, 'conductor_perfil'): obj.conductor_perfil.delete()
 
 
-# --- REGISTRO DE MODELOS DEL MÓDULO DE LOGIN / USUARIOS ---
-admin.site.register(Cuenta, CuentaAdmin)
+
+# --- REGISTRO DE MODELOS ---
+#admin.site.register(Cuenta, CuentaAdmin)
 admin.site.register(Administrador)
 admin.site.register(Docente)
 admin.site.register(Estudiante)
-admin.site.register(Conductor)
+
+# --- LOS QUE FALTABAN ---
+admin.site.register(Conductor)  # <--- Agregado
+admin.site.register(Universidad)  # <--- Agregado
+
+admin.site.register(Vehiculo)
+admin.site.register(Reserva)

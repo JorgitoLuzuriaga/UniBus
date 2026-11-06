@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow border-success">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="bi bi-clipboard-check"></i> Informe de Fin de Viaje</h4>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-light border mb-4">
+                        <i class="bi bi-info-circle text-primary"></i> 
+                        Por favor, registra el estado del vehículo al finalizar la ruta para cerrar oficialmente la reserva.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Kilometraje Final</label>
+                            {{ form.kilometraje_final }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nivel de Combustible</label>
+                            {{ form.nivel_combustible }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Novedades / Incidentes</label>
+                            {{ form.novedades }}
+                            <div class="form-text">Si hubo algún problema mecánico o retraso, indícalo aquí.</div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-success btn-lg fw-bold">
+                                <i class="bi bi-send-check"></i> Enviar Informe y Finalizar
+                            </button>
+                            <a href="{% url 'conductor_home' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

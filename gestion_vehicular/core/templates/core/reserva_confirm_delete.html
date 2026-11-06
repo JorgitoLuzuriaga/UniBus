@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 mb-4 shadow rounded-bottom">
+    <a class="navbar-brand fw-bold" href="{% url 'admin_dashboard' %}">
+        <img src="{% static 'img/logo.png' %}" alt="UNL" height="45" class="d-inline-block align-text-top me-2 bg-white rounded-circle p-1">
+        Panel Administrativo
+    </a>
+    <div class="ms-auto">
+        <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm fw-bold">Salir</a>
+    </div>
+</nav>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger shadow">
+                <div class="card-header bg-danger text-white text-center">
+                    <h4 class="mb-0"><i class="bi bi-exclamation-triangle-fill"></i> Eliminar Reserva</h4>
+                </div>
+                <div class="card-body text-center py-4">
+                    <p class="lead">¿Estás seguro de que deseas eliminar esta reserva?</p>
+                    
+                    <div class="alert alert-light border d-inline-block px-5 py-3 text-start">
+                        <p class="mb-1"><strong>ID Reserva:</strong> #{{ object.id }}</p>
+                        <p class="mb-1"><strong>Destino:</strong> {{ object.destino_canton }}</p>
+                        <p class="mb-1"><strong>Solicitante:</strong> {{ object.solicitante.getNombreCompleto }}</p>
+                        <p class="mb-0"><strong>Fecha:</strong> {{ object.fechaInicio|date:"d M Y" }}</p>
+                    </div>
+
+                    <p class="text-danger small mt-3 fw-bold">
+                        <i class="bi bi-exclamation-circle"></i> Esta acción borrará permanentemente la solicitud y las asistencias asociadas.
+                    </p>
+                    
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-center gap-3">
+                            <a href="{% url 'admin_reservas' %}" class="btn btn-secondary px-4">
+                                <i class="bi bi-arrow-left"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger px-4 fw-bold">
+                                <i class="bi bi-trash-fill"></i> Sí, Eliminar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

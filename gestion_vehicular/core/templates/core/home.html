@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="p-5 mb-4 bg-light rounded-3 shadow-sm text-center">
+    <div class="container-fluid py-5">
+        <h1 class="display-5 fw-bold text-primary">Sistema de Transporte Universitario</h1>
+        <p class="col-md-8 fs-4 mx-auto mb-4">Gestiona tus reservas de movilidad académica de forma eficiente, rápida y segura.</p>
+        
+        <div class="d-flex justify-content-center gap-3">
+            <a href="{% url 'solicitar_reserva' %}" class="btn btn-primary btn-lg px-4">
+                <i class="bi bi-plus-circle"></i> Solicitar Vehículo
+            </a>
+            <a href="{% url 'lista_reservas' %}" class="btn btn-outline-secondary btn-lg px-4">
+                <i class="bi bi-list-ul"></i> Ver mis Solicitudes
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row align-items-md-stretch">
+    <div class="col-md-6">
+        <div class="h-100 p-5 text-white bg-dark rounded-3">
+            <h2>Panel Administrativo</h2>
+            <p>Acceso exclusivo para gestores de transporte. Revisa solicitudes pendientes y asigna conductores.</p>
+            <a href="{% url 'admin_reservas' %}" class="btn btn-outline-light" type="button">Ir a Administración</a>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="h-100 p-5 bg-light border rounded-3">
+            <h2>Flota de Vehículos</h2>
+            <p>Registra nuevas unidades de transporte (Buses, Busetas, Camionetas) al sistema.</p>
+            <a href="{% url 'crear_vehiculo' %}" class="btn btn-outline-dark" type="button">Registrar Vehículo</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

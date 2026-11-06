@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary px-4 mb-4 shadow rounded-bottom">
+    <a class="navbar-brand fw-bold" href="{% url 'docente_home' %}">
+        <img src="{% static 'img/logo.png' %}" alt="UNL" height="45" class="d-inline-block align-text-top me-2 bg-white rounded-circle p-1">
+        Panel Docente
+    </a>
+    <div class="ms-auto">
+        <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm fw-bold">Salir</a>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="mb-3">
+        <a href="{% url 'lista_reservas' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left-circle-fill"></i> Volver a Mis Reservas
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-start border-primary border-5">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4 class="text-primary mb-1">{{ reserva.motivo }}</h4>
+                    <p class="mb-0 text-muted">
+                        <i class="bi bi-geo-alt-fill"></i> {{ reserva.destino_canton }} - {{ reserva.destino_parroquia }} <br>
+                        <i class="bi bi-calendar-event"></i> {{ reserva.fechaInicio|date:"d M Y, H:i" }}
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="card bg-light border-success d-inline-block px-4 py-2 text-center">
+                        <h3 class="mb-0 text-success fw-bold">{{ confirmados_count }} / {{ total_estudiantes }}</h3>
+                        <small class="text-success fw-bold">Estudiantes Confirmados</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h5 class="mb-3 text-secondary"><i class="bi bi-people-fill"></i> Lista de Estudiantes Invitados</h5>
+
+    <div class="table-responsive bg-white shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-secondary">
+                <tr>
+                    <th>Nombre Estudiante</th>
+                    <th>Cédula</th>
+                    <th>Carrera</th>
+                    <th>Estado de Asistencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asistencia in reserva.asistencias.all %}
+                <tr>
+                    <td class="fw-bold">{{ asistencia.estudiante.getNombreCompleto }}</td>
+                    <td>{{ asistencia.estudiante.cedula }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ asistencia.estudiante.get_carrera_display }}</span></td>
+                    <td>
+                        {% if asistencia.estado == 'CONFIRMADO' %}
+                            <span class="badge bg-success rounded-pill px-3 py-2">
+                                <i class="bi bi-check-circle-fill"></i> Confirmado
+                            </span>
+                        {% elif asistencia.estado == 'RECHAZADO' %}
+                            <span class="badge bg-danger rounded-pill px-3 py-2">
+                                <i class="bi bi-x-circle-fill"></i> Rechazado
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark rounded-pill px-3 py-2 border border-warning">
+                                <i class="bi bi-hourglass-split"></i> Pendiente
+                            </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-5">
+                        <i class="bi bi-people display-4 d-block mb-3 opacity-25"></i>
+                        No has seleccionado estudiantes para este viaje.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
