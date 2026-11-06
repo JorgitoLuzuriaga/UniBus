@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 from decouple import config
 
@@ -49,6 +50,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -147,3 +149,18 @@ DEFAULT_FROM_EMAIL = f'Gestión de Transporte UNL <{EMAIL_HOST_USER}>'
 
 RECAPTCHA_PUBLIC_KEY = config('RECAPTCHA_PUBLIC_KEY')
 RECAPTCHA_PRIVATE_KEY = config('RECAPTCHA_PRIVATE_KEY')
+
+# Ruta absoluta donde WhiteNoise empaquetará todo en el servidor de Render
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Carpetas físicas locales de tus imágenes y logos actuales
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+# Configuración recomendada para optimizar el almacenamiento con WhiteNoise
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
