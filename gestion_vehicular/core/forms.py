@@ -11,6 +11,8 @@ from django_recaptcha.fields import ReCaptchaField
 from django_recaptcha.widgets import ReCaptchaV2Checkbox
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
+from django.template.loader import render_to_string
+from anymail.message import AnymailMessage
 from .models import Conductor, Facultad, Reserva, Vehiculo, Docente, Estudiante, Carrera, Cuenta, InformeViaje
 
 
@@ -51,38 +53,37 @@ class UnlPasswordResetForm(PasswordResetForm):
         )
         return (u for u in active_users if u.has_usable_password())
 
-    def save(self, domain_override=None,
-             subject_template_name='registration/password_reset_subject.txt',
-             email_template_name='registration/password_reset_email.html',
-             use_https=False, token_generator=default_token_generator,
-             from_email=None, request=None, html_email_template_name=None,
-             extra_email_context=None):
-
-        email = self.cleaned_data["email"]
-        if not domain_override:
-            current_site = request.get_host() if request else '127.0.0.1:8000'
-            site_name = current_site
-        else:
-            current_site = domain_override
-            site_name = domain_override
-
-        for user in self.get_users(email):
-            user_email = user.correo
+    def save(self, domain_override=None, subject_template_name='registration/password_reset_subject.txt',
+             email_template_name='registration/password_reset_email.html', use_https=False,
+             token_generator=default_token_generator, from_email=None, request=None, html_email_template_name=None):
+        
+        for user in self.get_users(self.cleaned_data["email"]):
             context = {
-                'email': user_email,
-                'domain': current_site,
-                'site_name': site_name,
+                'email': user.correo,
+                'domain': domain_override or (request.get_host() if request else ''),
+                'site_name': 'Gestión de Transporte UNL',
                 'uid': urlsafe_base64_encode(force_bytes(user.pk)),
                 'user': user,
                 'token': token_generator.make_token(user),
-                'protocol': 'https' if use_https else 'http',
-                **(extra_email_context or {}),
+                'protocol': 'https' if use_https or (request and request.is_secure()) else 'http',
             }
-            self.send_mail(
-                subject_template_name, email_template_name, context, from_email,
-                user_email, html_email_template_name=html_email_template_name,
-            )
+            
+            subject = render_to_string(subject_template_name, context).strip()
+            body = render_to_string(email_template_name, context)
 
+            # FORZADO POR API HTTP (Inmune al bloqueo de puertos de Render)
+            message = AnymailMessage(
+                subject=subject,
+                body=body,
+                from_email="Gestión de Transporte UNL <jorge.luzuriaga@unl.edu.ec>",
+                to=[user.correo],
+            )
+            
+            if html_email_template_name:
+                html_email = render_to_string(html_email_template_name, context)
+                message.attach_alternative(html_email, "text/html")
+                
+            message.send()
 
 # --- PERFIL DE USUARIO ---
 class PerfilUsuarioForm(forms.ModelForm):
@@ -278,7 +279,6 @@ class RegistroUnlForm(UserCreationForm):
         user.apellidos = self.cleaned_data['apellidos']
         user.cedula = self.cleaned_data['cedula']
         
-        # Guardamos la licencia de forma segura en un atributo dinámico temporal de la cuenta
         user.tipo_licencia_temp = self.cleaned_data.get('tipo_licencia', '')
         
         user.activo = False  

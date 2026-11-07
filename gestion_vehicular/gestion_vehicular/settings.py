@@ -31,7 +31,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '://onrender.com',
+    'gestion-transporte-unl.onrender.com',
     '*',
 ]
 
@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_recaptcha',
+    'anymail',  # <--- Habilitamos la librería Anymail para envíos por API HTTP
 ]
 
 MIDDLEWARE = [
@@ -130,16 +131,18 @@ LOGOUT_REDIRECT_URL = '/login/'
 LOGIN_URL = '/login/'
 
 
-# UNIFIED EMAIL CONFIGURATION (SMTP - Secure Production Mode)
-# Forces Port 465 and SSL to bypass Render's outward Port 587 security block blocks
-# Servidor real para correos institucionales de la UNL (Office 365)
-EMAIL_HOST = '://office365.com'
-EMAIL_PORT = 465
-EMAIL_USE_TLS = False
-EMAIL_USE_SSL = True
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = f'Gestión de Transporte UNL <{EMAIL_HOST_USER}>'
+# =========================================================================
+# CONFIGURACIÓN DE CORREO TOTALMENTE ABIERTO (API DE BREVO / ANYMAIL)
+# =========================================================================
+# Reemplaza por completo el protocolo SMTP. Usa HTTP (Puerto 443) inmune a bloqueos.
+EMAIL_BACKEND = "anymail.backends.sendinblue.EmailBackend"
+
+ANYMAIL = {
+    "SENDINBLUE_API_KEY": config("BREVO_API_KEY"),
+}
+
+# Tu cuenta institucional oficial como remitente visual ante el usuario
+DEFAULT_FROM_EMAIL = "Gestión de Transporte UNL <jorge.luzuriaga@unl.edu.ec>"
 
 
 # API CREDENTIALS FOR RECAPTCHA SECURITY
