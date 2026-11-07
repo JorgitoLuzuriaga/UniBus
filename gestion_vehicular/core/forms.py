@@ -55,8 +55,12 @@ class UnlPasswordResetForm(PasswordResetForm):
 
     def save(self, domain_override=None, subject_template_name='registration/password_reset_subject.txt',
              email_template_name='registration/password_reset_email.html', use_https=False,
-             token_generator=default_token_generator, from_email=None, request=None, html_email_template_name=None):
+             token_generator=default_token_generator, from_email=None, request=None, 
+             html_email_template_name=None, **kwargs):
         
+        # Recuperamos el contexto extra enviado por Django si es que existe
+        extra_email_context = kwargs.get('extra_email_context')
+
         for user in self.get_users(self.cleaned_data["email"]):
             context = {
                 'email': user.correo,
@@ -68,10 +72,14 @@ class UnlPasswordResetForm(PasswordResetForm):
                 'protocol': 'https' if use_https or (request and request.is_secure()) else 'http',
             }
             
+            # Si Django envió contexto extra (como en Django 6.x), lo unificamos
+            if extra_email_context is not None:
+                context.update(extra_email_context)
+            
             subject = render_to_string(subject_template_name, context).strip()
             body = render_to_string(email_template_name, context)
 
-            # FORZADO POR API HTTP (Inmune al bloqueo de puertos de Render)
+            # FORZADO POR API HTTP DE BREVO (Inmune a los bloqueos de Render)
             message = AnymailMessage(
                 subject=subject,
                 body=body,
