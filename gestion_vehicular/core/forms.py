@@ -143,6 +143,12 @@ class CarreraPorFacultadSelect(forms.Select):
             option['attrs']['data-facultad'] = facultad
         return option
 
+CARRERAS_UNIFICADAS = []
+for lista_carreras in CARRERAS_POR_FACULTAD.values():
+    for codigo, nombre_legible in lista_carreras:
+        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
+            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
+
 # --- PERFIL DE USUARIO ---
 class PerfilUsuarioForm(forms.ModelForm):
     class Meta:
@@ -316,6 +322,12 @@ from django.contrib.auth import get_user_model
 # Definición del modelo de usuario personalizado de tu proyecto (Cuenta)
 CuentaUsuario = get_user_model()
 
+# Aplanamos tu diccionario de carreras para obtener las tuplas correctas
+CARRERAS_UNIFICADAS = []
+for lista_carreras in CARRERAS_POR_FACULTAD.values():
+    for codigo, nombre_legible in lista_carreras:
+        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
+            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
 
 # ==========================================
 # FORMULARIO DE RESERVA
@@ -350,12 +362,13 @@ for lista_carreras in CARRERAS_POR_FACULTAD.values():
         if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
             CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
 
+# Construimos un mapa inverso dinámico garantizado en base a tu diccionario exacto
 CARRERA_A_FACULTAD_DINAMICO = {}
 for fac, lista_carreras in CARRERAS_POR_FACULTAD.items():
     for codigo_carrera, _ in lista_carreras:
         # Extraemos el valor del enum (ej: si es Facultad.FEAC de tipo Enum, guarda 'FEAC')
         valor_facultad = fac.value if hasattr(fac, 'value') else str(fac)
-        CARRERA_A_FACULTAD_DINAMICO[codigo_carrera] = valor_facultad           
+        CARRERA_A_FACULTAD_DINAMICO[codigo_carrera] = valor_facultad
 
 
 # ==========================================
