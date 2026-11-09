@@ -263,21 +263,22 @@ def solicitar_recuperacion(request):
     form = UnlPasswordResetForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         correo = form.cleaned_data['email']
-        usuarios = list(form.get_users(correo))
-        user = usuarios[0] if usuarios else None
+        user = form.get_users(correo).first()
+        if user is None:
+            form.add_error(
+                'email',
+                'No hay una cuenta registrada con ese correo. Si acabas de registrarte, primero confirma el código de registro.',
+            )
+            return render(request, 'registration/password_reset_form.html', {'form': form})
         codigo = _nuevo_codigo()
-        if user is not None:
-            try:
-                enviar_codigo_recuperacion(user.correo, user.nombres or user.correo, codigo)
-            except Exception as exc:
-                logger.exception('No se envió el código de recuperación a %s', user.correo)
-                form.add_error('email', _mensaje_fallo_correo(exc))
-                return render(request, 'registration/password_reset_form.html', {'form': form})
-            codigo_hash = make_password(codigo)
-            uid = user.pk
-        else:
-            codigo_hash = make_password(_nuevo_codigo())
-            uid = None
+        try:
+            enviar_codigo_recuperacion(user.correo, user.nombres or user.correo, codigo)
+        except Exception as exc:
+            logger.exception('No se envió el código de recuperación a %s', user.correo)
+            form.add_error('email', _mensaje_fallo_correo(exc))
+            return render(request, 'registration/password_reset_form.html', {'form': form})
+        codigo_hash = make_password(codigo)
+        uid = user.pk
         request.session[RECUPERACION_SESION] = {
             'uid': uid,
             'correo': correo,

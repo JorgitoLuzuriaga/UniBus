@@ -312,8 +312,7 @@ class UnlPasswordResetForm(PasswordResetForm):
 
     def get_users(self, email):
         # También incluye cuentas que aún esperan la asignación de rol.
-        usuarios = User._default_manager.filter(correo__iexact=email)
-        return (u for u in usuarios if u.has_usable_password())
+        return User._default_manager.filter(correo__iexact=email)
 
     def save(self, domain_override=None, subject_template_name='registration/password_reset_subject.txt',
              email_template_name='registration/password_reset_email.html', use_https=False,

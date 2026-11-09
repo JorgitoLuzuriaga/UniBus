@@ -15,13 +15,13 @@ from .models import Cuenta, Notificacion
 logger = logging.getLogger(__name__)
 
 
-def _enviar(asunto, cuerpo_html, destinatarios):
+def _enviar(asunto, cuerpo_html, destinatarios, cuerpo_texto=None):
     if not getattr(settings, 'ANYMAIL', {}).get('BREVO_API_KEY'):
         raise RuntimeError('Falta BREVO_API_KEY en las variables de entorno de Render.')
 
     mensaje = AnymailMessage(
         subject=asunto,
-        body='Abre este mensaje en un correo que pueda mostrar HTML.',
+        body=cuerpo_texto or 'Abre este mensaje en un correo que pueda mostrar HTML.',
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=destinatarios,
     )
@@ -38,22 +38,43 @@ def _enviar(asunto, cuerpo_html, destinatarios):
         raise
 
 
+def _texto_codigo(nombre, codigo, minutos, motivo):
+    return (
+        f'Hola {nombre},\n\n'
+        f'{motivo}\n\n'
+        f'Tu código es: {codigo}\n\n'
+        f'Escríbelo en el sitio web. No abras enlaces. Vence en {minutos} minutos.\n'
+    )
+
+
 def enviar_codigo_recuperacion(correo, nombre, codigo):
+    nombre = nombre or correo
     html = render_to_string('registration/codigo_recuperacion_email.html', {
-        'nombre': nombre or correo,
+        'nombre': nombre,
         'codigo': codigo,
         'minutos': 15,
     })
-    _enviar('Código para restablecer tu contraseña - Gestión de Transporte UNL', html, [correo])
+    _enviar(
+        'Código para restablecer tu contraseña - Gestión de Transporte UNL',
+        html,
+        [correo],
+        _texto_codigo(nombre, codigo, 15, 'Usa este código para elegir una nueva contraseña.'),
+    )
 
 
 def enviar_codigo_verificacion(correo, nombre, codigo):
+    nombre = nombre or correo
     html = render_to_string('registration/codigo_verificacion_email.html', {
-        'nombre': nombre or correo,
+        'nombre': nombre,
         'codigo': codigo,
         'minutos': 15,
     })
-    _enviar('Código de verificación - Gestión de Transporte UNL', html, [correo])
+    _enviar(
+        'Código de verificación - Gestión de Transporte UNL',
+        html,
+        [correo],
+        _texto_codigo(nombre, codigo, 15, 'Usa este código para confirmar tu registro.'),
+    )
 
 
 def enviar_confirmacion_registro(user, request):
