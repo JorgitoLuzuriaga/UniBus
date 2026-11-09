@@ -1,12 +1,14 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-# Ignored default folder with query files
-/queries/
-# Datasource local storage ignored files
-/dataSources/
-/dataSources.local.xml
-# Editor-based HTTP Client requests
-/httpRequests/
+# Archivos por defecto de la IDE (PyCharm / IntelliJ)
+.idea/
+*.iml
+
+# Archivos de entorno y credenciales (Ignora el .env en cualquier carpeta)
 .env
-/gestion_vehicular/.env
+**/.env
+
+# Base de datos local (¡Muy importante no subirla!)
+*.sqlite3
+
+# Entorno virtual de Python
+venv/
+.venv/
