@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 def _enviar(asunto, cuerpo_html, destinatarios):
+    if not getattr(settings, 'ANYMAIL', {}).get('BREVO_API_KEY'):
+        raise RuntimeError('Falta BREVO_API_KEY en las variables de entorno de Render.')
+
     mensaje = AnymailMessage(
         subject=asunto,
         body='Abre este mensaje en un correo que pueda mostrar HTML.',
@@ -23,7 +26,16 @@ def _enviar(asunto, cuerpo_html, destinatarios):
         to=destinatarios,
     )
     mensaje.attach_alternative(cuerpo_html, 'text/html')
-    mensaje.send()
+    try:
+        mensaje.send()
+    except Exception:
+        logger.exception(
+            'Brevo rechazó el correo "%s" hacia %s desde %s',
+            asunto,
+            ', '.join(destinatarios),
+            settings.DEFAULT_FROM_EMAIL,
+        )
+        raise
 
 
 def enviar_confirmacion_registro(user, request):

@@ -92,6 +92,17 @@ def _ip_cliente(request):
     return request.META.get('REMOTE_ADDR', '') or ''
 
 
+def _mensaje_fallo_correo(exc):
+    texto = str(exc).lower()
+    if 'brevo_api_key' in texto or 'falta brevo_api_key' in texto:
+        return 'No se envió el correo: en Render falta la variable BREVO_API_KEY.'
+    if '401' in texto or 'unauthorized' in texto or 'unauthorised' in texto:
+        return 'No se envió el correo: Brevo rechazó la clave API. Revisa BREVO_API_KEY en Render.'
+    if 'sender' in texto or 'not yet activated' in texto:
+        return 'No se envió el correo: el remitente no está verificado en Brevo. Confírmalo en Senders, domains & dedicated IPs.'
+    return 'No se envió el correo de confirmación. En Brevo abre Transactional → Logs para ver si quedó bloqueado o en spam.'
+
+
 def _bloqueo_de_registro(ip, correo):
     desde = timezone.now() - timedelta(hours=1)
     if ip and IntentoRegistro.objects.filter(ip=ip, creado__gte=desde).count() >= 20:
@@ -115,9 +126,10 @@ def registrar_usuario(request):
             user = form.save()
             try:
                 enviar_confirmacion_registro(user, request)
-            except Exception:
+            except Exception as exc:
                 user.delete()
-                form.add_error('correo', 'El correo no existe o no se pudo enviar la confirmación. Revísalo e inténtalo de nuevo.')
+                logger.exception('No se envió la confirmación a %s', user.correo)
+                form.add_error('correo', _mensaje_fallo_correo(exc))
             else:
                 try:
                     notificar_registro_a_admins(user, request)

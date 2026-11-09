@@ -132,18 +132,19 @@ LOGOUT_REDIRECT_URL = '/login/'
 LOGIN_URL = '/login/'
 
 
-# =========================================================================
-# CONFIGURACIÓN DE CORREO TOTALMENTE ABIERTO (API DE BREVO / ANYMAIL)
-# =========================================================================
-# Reemplaza por completo el protocolo SMTP. Usa HTTP (Puerto 443) inmune a bloqueos.
-EMAIL_BACKEND = "anymail.backends.sendinblue.EmailBackend"
+# Correo por la API de Brevo (HTTPS). En Render la variable tiene que llamarse BREVO_API_KEY.
+# El remitente tiene que estar verificado en Brevo; si no, la API acepta o bloquea el mensaje
+# y la bandeja de la UNL no lo muestra.
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
 ANYMAIL = {
-    "SENDINBLUE_API_KEY": config("BREVO_API_KEY", default="temporal"),
+    "BREVO_API_KEY": config("BREVO_API_KEY", default="").strip(),
 }
 
-# Tu cuenta institucional oficial como remitente visual ante el usuario
-DEFAULT_FROM_EMAIL = "Gestión de Transporte UNL <jorge.luzuriaga@unl.edu.ec>"
+DEFAULT_FROM_EMAIL = config(
+    "BREVO_SENDER",
+    default="Gestión de Transporte UNL <jorge.luzuriaga@unl.edu.ec>",
+)
 
 
 # API CREDENTIALS FOR RECAPTCHA SECURITY
