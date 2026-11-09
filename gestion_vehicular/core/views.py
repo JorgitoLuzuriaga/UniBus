@@ -1,3 +1,5 @@
+import logging
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView, DeleteView
@@ -25,12 +27,18 @@ from .forms import ReservaForm, VehiculoForm, GestionReservaForm, UnlAuthenticat
 from .correos import enviar_confirmacion_registro, notificar_registro_a_admins
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 # --- AUTENTICACIÓN ---
 class UnlLoginView(LoginView):
     template_name = 'registration/login.html'
     authentication_form = UnlAuthenticationForm
     redirect_authenticated_user = True
+
+    def form_valid(self, form):
+        if not self.request.POST.get('remember'):
+            self.request.session.set_expiry(0)
+        return super().form_valid(form)
 
 
 @login_required
@@ -111,7 +119,10 @@ def registrar_usuario(request):
                 user.delete()
                 form.add_error('correo', 'El correo no existe o no se pudo enviar la confirmación. Revísalo e inténtalo de nuevo.')
             else:
-                notificar_registro_a_admins(user, request)
+                try:
+                    notificar_registro_a_admins(user, request)
+                except Exception:
+                    logger.exception('El registro %s quedó creado, pero falló el aviso al administrador', user.pk)
                 return render(request, 'registration/registro_pendiente.html')
     else:
         form = RegistroUnlForm()
@@ -134,6 +145,17 @@ def activar_cuenta(request, uidb64, token):
 class PerfilUsuarioView(LoginRequiredMixin, UpdateView):
     template_name = 'core/perfil_form.html'
     success_url = reverse_lazy('mi_perfil')
+
+    def dispatch(self, request, *args, **kwargs):
+        user = request.user
+        tiene_perfil = any(
+            hasattr(user, perfil)
+            for perfil in ('administrador_perfil', 'docente_perfil', 'conductor_perfil', 'estudiante_perfil')
+        )
+        if not tiene_perfil:
+            messages.info(request, 'Tu perfil estará disponible cuando un administrador te asigne un rol.')
+            return redirect('dashboard_redirect')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_object(self):
         u = self.request.user

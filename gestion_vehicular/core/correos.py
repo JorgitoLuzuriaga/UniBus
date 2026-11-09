@@ -51,9 +51,14 @@ def notificar_registro_a_admins(user, request):
         correos.add('jorge.luzuriaga@unl.edu.ec')
     correos.discard(user.correo)
 
-    enlace = request.build_absolute_uri(
-        reverse('admin:core_cuenta_change', args=[user.pk])
-    )
+    try:
+        enlace = request.build_absolute_uri(
+            reverse('admin:core_cuenta_change', args=[user.pk])
+        )
+    except Exception:
+        logger.exception('No se pudo armar el enlace de revisión del registro %s', user.pk)
+        enlace = ''
+
     contexto = {
         'user': user,
         'enlace': enlace,
@@ -62,8 +67,8 @@ def notificar_registro_a_admins(user, request):
         'licencia': f'Tipo {user.tipo_licencia}' if user.tipo_licencia else 'No aplica',
     }
     if correos:
-        html = render_to_string('registration/admin_nuevo_registro_email.html', contexto)
         try:
+            html = render_to_string('registration/admin_nuevo_registro_email.html', contexto)
             _enviar(
                 f'Nuevo registro pendiente: {user.nombre_completo}',
                 html,
@@ -73,8 +78,11 @@ def notificar_registro_a_admins(user, request):
             logger.exception('No se pudo avisar por correo del registro %s', user.pk)
 
     for admin in admins:
-        Notificacion.objects.create(
-            destinatario=admin,
-            mensaje=f'Nuevo registro de {user.nombre_completo} ({user.correo}). Asigna el rol.',
-            link=reverse('admin:core_cuenta_change', args=[user.pk]),
-        )
+        try:
+            Notificacion.objects.create(
+                destinatario=admin,
+                mensaje=f'Nuevo registro de {user.nombre_completo} ({user.correo}). Asigna el rol.',
+                link=enlace or reverse('admin:core_cuenta_change', args=[user.pk]),
+            )
+        except Exception:
+            logger.exception('No se pudo notificar en el sistema el registro %s', user.pk)

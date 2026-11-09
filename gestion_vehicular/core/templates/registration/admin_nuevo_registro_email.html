@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; }
+        .header { text-align: center; border-bottom: 2px solid #0d6efd; padding-bottom: 15px; margin-bottom: 20px; }
+        .btn-primary { display: inline-block; background-color: #0d6efd; color: #ffffff !important; text-decoration: none; padding: 12px 25px; font-weight: bold; border-radius: 50px; margin: 15px 0; }
+        .footer { font-size: 12px; color: #777777; border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 25px; }
+        .user-box { background-color: #f8f9fa; padding: 12px 15px; border-left: 4px solid #0d6efd; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2 style="color: #0d6efd; margin: 0;">Gestión de Transporte UNL</h2>
+            <span style="color: #6c757d; font-size: 14px;">Nuevo registro pendiente</span>
+        </div>
+
+        <p>Hay una cuenta nueva esperando que le asignes un rol.</p>
+
+        <div class="user-box">
+            <strong>{{ user.nombre_completo }}</strong><br>
+            Correo: {{ user.correo }}<br>
+            Cédula: {{ user.cedula }}<br>
+            Facultad: {{ facultad }}<br>
+            Carrera: {{ carrera }}<br>
+            Licencia: {{ licencia }}
+        </div>
+
+        {% if enlace %}
+        <div style="text-align: center;">
+            <a href="{{ enlace }}" class="btn-primary">Revisar la cuenta</a>
+        </div>
+        <p style="font-size: 13px; word-break: break-all;">
+            <a href="{{ enlace }}">{{ enlace }}</a>
+        </p>
+        {% endif %}
+
+        <p>Hasta que actives la cuenta y asignes estudiante, docente o conductor, la persona puede entrar pero no verá los módulos.</p>
+
+        <div class="footer">
+            <strong>Gestión de Transporte UNL</strong><br>
+            <span style="font-size: 11px;">Universidad Nacional de Loja &copy; 2026</span>
+        </div>
+    </div>
+</body>
+</html>

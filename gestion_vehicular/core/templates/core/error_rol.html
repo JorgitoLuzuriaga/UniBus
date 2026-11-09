@@ -22,8 +22,8 @@
                         <strong>Estado de la cuenta:</strong> {{ mensaje|default:"Usuario sin rol asignado en el sistema." }}
                     </div>
                     
-                    <p class="text-muted small">
-                        Tu cuenta institucional ha sido verificada y activada con éxito. Sin embargo, para poder ingresar a los módulos de gestión, un <strong>Administrador del Sistema</strong> debe asignarte un perfil válido (Estudiante, Docente o Conductor).
+                    <p class="text-muted">
+                        {{ detalle|default:"Para ingresar a los módulos, un administrador debe asignarte un perfil de estudiante, docente o conductor." }}
                     </p>
 
                     <hr class="my-4 text-muted opacity-25">

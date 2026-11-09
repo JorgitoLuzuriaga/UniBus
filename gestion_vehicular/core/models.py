@@ -191,6 +191,12 @@ class Cuenta(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = 'correo'
     REQUIRED_FIELDS = []
 
+    @property
+    def is_active(self):
+        # Django rechaza el login si este atributo no existe.
+        # La aprobación del rol sigue en `activo` y se revisa después de entrar.
+        return True
+
     def get_rol_perfil(self):
         if not self.activo or self.rol_asignado == self.RolesDisponibles.NINGUNO:
             return 'Pendiente de Aprobación', None
@@ -294,12 +300,6 @@ class Reserva(models.Model):
 
     def __str__(self):
         return f"Reserva {self.id} - {self.destino_canton}"
-
-class Asistencia(models.Model):
-    # ... (MANTENER IGUAL) ...
-    estado = models.CharField(max_length=20, choices=EstadoAsistencia.choices, default=EstadoAsistencia.SIN_RESPUESTA)
-    reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name='asistencias')
-    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name='asistencias')
 
 # --- NUEVO MODELO: INFORME DE VIAJE ---
 class InformeViaje(models.Model):

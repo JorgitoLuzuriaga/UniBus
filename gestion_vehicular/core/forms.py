@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
@@ -238,6 +239,11 @@ class RegistroUnlForm(forms.ModelForm):
         p2 = cleaned.get('password2')
         if p1 and p2 and p1 != p2:
             self.add_error('password2', self.error_messages['password_mismatch'])
+        elif p1:
+            try:
+                validate_password(p1, self.instance)
+            except ValidationError as exc:
+                self.add_error('password1', exc)
 
         return cleaned
 
@@ -260,9 +266,16 @@ class RegistroUnlForm(forms.ModelForm):
 
 # --- 3. RECUPERACIÓN DE CONTRASEÑA ---
 class UnlPasswordResetForm(PasswordResetForm):
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if not email.endswith('@unl.edu.ec'):
+            raise forms.ValidationError('Solo se permiten correos institucionales @unl.edu.ec.')
+        return email
+
     def get_users(self, email):
-        active_users = User._default_manager.filter(correo__iexact=email, activo=True)
-        return (u for u in active_users if u.has_usable_password())
+        # También incluye cuentas que aún esperan la asignación de rol.
+        usuarios = User._default_manager.filter(correo__iexact=email)
+        return (u for u in usuarios if u.has_usable_password())
 
     def save(self, domain_override=None, subject_template_name='registration/password_reset_subject.txt',
              email_template_name='registration/password_reset_email.html', use_https=False,
