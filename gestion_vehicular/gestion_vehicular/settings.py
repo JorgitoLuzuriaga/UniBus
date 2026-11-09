@@ -139,7 +139,7 @@ LOGIN_URL = '/login/'
 EMAIL_BACKEND = "anymail.backends.sendinblue.EmailBackend"
 
 ANYMAIL = {
-    "SENDINBLUE_API_KEY": config("BREVO_API_KEY"),
+    "SENDINBLUE_API_KEY": config("BREVO_API_KEY", default="temporal"),
 }
 
 # Tu cuenta institucional oficial como remitente visual ante el usuario
