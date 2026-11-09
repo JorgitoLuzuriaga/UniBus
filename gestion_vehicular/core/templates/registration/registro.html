@@ -135,13 +135,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const nombresInput = document.getElementById('id_nombres');
     const apellidosInput = document.getElementById('id_apellidos');
 
+    // Cambiamos dinámicamente los campos para permitir edición manual en caso de que lo necesiten
+    if (nombresInput) nombresInput.removeAttribute('readonly');
+    if (apellidosInput) apellidosInput.removeAttribute('readonly');
+
     if (correoInput && nombresInput && apellidosInput) {
         correoInput.addEventListener('input', function() {
             const correo = this.value.trim().toLowerCase();
             
             if (correo.includes('@unl.edu.ec')) {
-                const parteUsuario = correo.split('@')[0];
-                const partes = parteUsuario.split('.');
+                const parteUsuario = correo.split('@')[0]; // Extrae la parte izquierda antes del @
+                const partes = parteUsuario.split('.');    // Separa por puntos
 
                 if (partes.length >= 2) {
                     const capitalizar = (str) => str.charAt(0).toUpperCase() + str.slice(1);
@@ -150,14 +154,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     let apellidoSugerido = '';
 
                     if (partes.length === 2) {
-                        // Formato: jorge.luzuriaga -> Jorge Luzuriaga
+                        // Formato: nombre.apellido
                         apellidoSugerido = capitalizar(partes[1]);
                     } else if (partes.length >= 3) {
-                        // Formato con inicial intermedia: jorge.l.luzuriaga -> Jorge Luzuriaga
+                        // Formato con inicial intermedia: nombre.l.apellido
                         if (partes[1].length === 1) {
                             apellidoSugerido = capitalizar(partes[2]);
                         } else {
-                            // Formato con dos apellidos: jorge.luzuriaga.betancourt
+                            // Formato con múltiples apellidos o nombres unidos por puntos
                             apellidoSugerido = capitalizar(partes[1]) + ' ' + capitalizar(partes[2]);
                         }
                     }
@@ -165,9 +169,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     nombresInput.value = nombreSugerido;
                     apellidosInput.value = apellidoSugerido;
                 }
-            } else {
-                nombresInput.value = '';
-                apellidosInput.value = '';
             }
         });
     }

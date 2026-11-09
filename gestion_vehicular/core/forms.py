@@ -371,6 +371,21 @@ for fac, lista_carreras in CARRERAS_POR_FACULTAD.items():
         CARRERA_A_FACULTAD_DINAMICO[codigo_carrera] = valor_facultad
 
 
+class ReservaForm(forms.ModelForm):
+    carrera_filtro = forms.ChoiceField(
+        choices=CARRERAS_UNIFICADAS, 
+        label="Filtrar Carrera", 
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
+    )
+    estudiantes_seleccion = forms.ModelMultipleChoiceField(
+        queryset=Estudiante.objects.all(), 
+        label="Seleccionar Estudiantes", 
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'estudiante-checkbox'})
+    )
+
+
 # ==========================================
 # FORMULARIO DE REGISTRO UNL
 # ==========================================
@@ -379,6 +394,7 @@ class RegistroUnlForm(UserCreationForm):
         'password_mismatch': 'Las contraseñas no coinciden.',
     }
     
+    # Orden de renderizado en el HTML (Sin correo_confirmacion)
     field_order = [
         'correo', 
         'nombres', 
@@ -420,7 +436,7 @@ class RegistroUnlForm(UserCreationForm):
         }),
     )
     facultad = forms.ChoiceField(
-        choices=[facultad for facultad in Facultad.choices if facultad != Facultad.RNR],
+        choices=[(fac.value, fac.label) for fac in Facultad if fac != Facultad.RNR],
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
     carrera = forms.ChoiceField(
@@ -457,6 +473,7 @@ class RegistroUnlForm(UserCreationForm):
         self.verificar_correo = verificar_correo
         super().__init__(*args, **kwargs)
         
+        # Removemos el campo username automático heredado de UserCreationForm
         if 'username' in self.fields:
             del self.fields['username']
             
@@ -483,7 +500,7 @@ class RegistroUnlForm(UserCreationForm):
         error = validar_cedula(cedula)
         if error:
             raise forms.ValidationError(error)
-        if (Cuenta.objects.filter(cedula=cedula).exists() or
+        if (CuentaUsuario.objects.filter(cedula=cedula).exists() or
                 Estudiante.objects.filter(cedula=cedula).exists() or
                 Docente.objects.filter(cedula=cedula).exists() or
                 Conductor.objects.filter(cedula=cedula).exists()):
@@ -511,16 +528,14 @@ class RegistroUnlForm(UserCreationForm):
         facultad = cleaned.get('facultad')
         carrera = cleaned.get('carrera')
         
+        # VALIDACIÓN DEL ENUM CORREGIDA USANDO .VALUE
         if facultad and carrera:
-            # Obtenemos el valor string de la facultad del formulario (limpiando si es enum)
-            val_fac_form = facultad.value if hasattr(facultad, 'value') else str(facultad)
-            # Buscamos en nuestro mapa dinámico
-            facultad_esperada = CARRERA_A_FACULTAD_DINAMICO.get(carrera)
+            facultad_enum = CARRERA_A_FACULTAD.get(carrera)
+            facultad_esperada_str = facultad_enum.value if facultad_enum else None
             
-            if facultad_esperada != val_fac_form:
+            if facultad_esperada_str != str(facultad):
                 self.add_error('carrera', 'Esta carrera no pertenece a la facultad seleccionada.')
-
-            
+                
         return cleaned
 
     def save(self, commit=True):
