@@ -347,15 +347,30 @@ class ReservaForm(forms.ModelForm):
     )
 
 
+from django import forms
+from django.contrib.auth.forms import UserCreationForm
+from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
+
+# Definición del modelo de usuario personalizado de tu proyecto (Cuenta)
+CuentaUsuario = get_user_model()
+
+# Aplanamos tu diccionario de carreras para obtener las tuplas correctas
+CARRERAS_UNIFICADAS = []
+for lista_carreras in CARRERAS_POR_FACULTAD.values():
+    for codigo, nombre_legible in lista_carreras:
+        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
+            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
+
+
 # ==========================================
-# FORMULARIO DE REGISTRO UNL (SIN CONFIRMACIÓN)
+# FORMULARIO DE REGISTRO UNL
 # ==========================================
 class RegistroUnlForm(UserCreationForm):
     error_messages = {
         'password_mismatch': 'Las contraseñas no coinciden.',
     }
     
-    # Se eliminó 'correo_confirmacion' de la lista de orden
     field_order = [
         'correo', 
         'nombres', 
@@ -420,7 +435,6 @@ class RegistroUnlForm(UserCreationForm):
 
     class Meta:
         model = CuentaUsuario
-        # Se eliminó 'correo_confirmacion' de los campos permitidos del Meta
         fields = [
             'correo', 
             'nombres', 
@@ -472,7 +486,6 @@ class RegistroUnlForm(UserCreationForm):
         cleaned = super().clean()
         email = cleaned.get('correo')
         
-        # Se eliminó la validación y comparación de 'correo_confirmacion'
         if email:
             nombres, apellidos = nombres_desde_correo(email)
             if not nombres or not apellidos:
@@ -489,8 +502,11 @@ class RegistroUnlForm(UserCreationForm):
                 
         facultad = cleaned.get('facultad')
         carrera = cleaned.get('carrera')
-        if facultad and carrera and CARRERA_A_FACULTAD.get(carrera) != facultad:
+        
+        # FIX DEFINITIVO: Convertimos ambos lados a str() para validar strings puros ('FEAC' == 'FEAC')
+        if facultad and carrera and str(CARRERA_A_FACULTAD.get(carrera)) != str(facultad):
             self.add_error('carrera', 'Esta carrera no pertenece a la facultad seleccionada.')
+            
         return cleaned
 
     def save(self, commit=True):
