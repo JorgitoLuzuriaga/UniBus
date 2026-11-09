@@ -15,7 +15,7 @@ from django.utils.safestring import mark_safe
 from django.template.loader import render_to_string
 from anymail.message import AnymailMessage
 from .models import (
-    CARRERA_A_FACULTAD, Conductor, Facultad, Reserva,
+    CARRERA_A_FACULTAD, CARRERAS_POR_FACULTAD, Conductor, Facultad, Reserva,
     Vehiculo, Docente, Estudiante, Carrera, Cuenta, InformeViaje,
 )
 from .validaciones import correo_institucional_existe, nombres_desde_correo, validar_cedula
@@ -39,10 +39,16 @@ class UnlAuthenticationForm(AuthenticationForm):
 )
 
     def clean_username(self):
-        correo = self.cleaned_data.get('username')
-        if correo and not correo.endswith('@unl.edu.ec'):
-            raise ValidationError("Acceso restringido: Solo se permiten correos institucionales (@unl.edu.ec).")
-        return correo
+        # Ahora el método limpia y valida el campo 'username'
+        email = (self.cleaned_data.get('username') or '').strip().lower()
+        if not email.endswith('@unl.edu.ec'):
+            raise forms.ValidationError('Solo se permiten correos institucionales @unl.edu.ec.')
+        if User.objects.filter(username__iexact=email).exists():
+            raise forms.ValidationError('Este correo ya se encuentra registrado.')
+        existe = correo_institucional_existe(email)
+        if existe is False:
+            raise forms.ValidationError('El correo no existe.')
+        return email
 
 
 # --- RECUPERACIÓN DE CONTRASEÑA ---
@@ -137,6 +143,12 @@ class CarreraPorFacultadSelect(forms.Select):
             option['attrs']['data-facultad'] = facultad
         return option
 
+CARRERAS_UNIFICADAS = []
+for lista_carreras in CARRERAS_POR_FACULTAD.values():
+    for codigo, nombre_legible in lista_carreras:
+        # Evitamos duplicados si alguna carrera se repite
+        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
+            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
 
 # --- PERFIL DE USUARIO ---
 class PerfilUsuarioForm(forms.ModelForm):
@@ -223,7 +235,9 @@ class GestionReservaForm(forms.ModelForm):
 # --- SOLICITUD DE RESERVA (DOCENTE) ---
 class ReservaForm(forms.ModelForm):
     carrera_filtro = forms.ChoiceField(
-        choices=Carrera.choices, label="Filtrar Carrera", required=False,
+        choices=CARRERAS_UNIFICADAS, # 👈 Cambiado aquí
+        label="Filtrar Carrera", 
+        required=False,
         widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
     )
     estudiantes_seleccion = forms.ModelMultipleChoiceField(
@@ -341,7 +355,7 @@ class RegistroUnlForm(UserCreationForm):
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
     carrera = forms.ChoiceField(
-        choices=Carrera.choices,
+        choices=CARRERAS_UNIFICADAS, # 👈 Cambiado aquí
         widget=CarreraPorFacultadSelect(attrs={'class': 'form-select'}),
     )
     tipo_licencia = forms.ChoiceField(
@@ -362,7 +376,7 @@ class RegistroUnlForm(UserCreationForm):
         model = User
         # Se listan explícitamente todos tus campos para que Django permita renderizarlos
         fields = [
-            'correo', 
+            'username', 
             'correo_confirmacion', 
             'nombres', 
             'apellidos', 
