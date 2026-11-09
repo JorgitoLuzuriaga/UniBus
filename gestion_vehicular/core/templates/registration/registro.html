@@ -14,7 +14,7 @@
             <div class="card shadow-lg border-0 rounded-4">
                 <div class="card-body p-5">
                     
-                    <!-- ALERTA DE ERRORES CORREGIDA -->
+                    <!-- ALERTA DE ERRORES -->
                     {% if form.errors or form.non_field_errors %}
                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
                         <i class="bi bi-exclamation-circle-fill"></i> <strong>Verifica los siguientes campos:</strong>
@@ -150,12 +150,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     let apellidoSugerido = '';
 
                     if (partes.length === 2) {
+                        // Formato: jorge.luzuriaga -> Jorge Luzuriaga
                         apellidoSugerido = capitalizar(partes[1]);
                     } else if (partes.length >= 3) {
-                        // Si el segundo fragmento es una inicial de 1 letra (ej: jorge.l.luzuriaga)
+                        // Formato con inicial intermedia: jorge.l.luzuriaga -> Jorge Luzuriaga
                         if (partes[1].length === 1) {
                             apellidoSugerido = capitalizar(partes[2]);
                         } else {
+                            // Formato con dos apellidos: jorge.luzuriaga.betancourt
                             apellidoSugerido = capitalizar(partes[1]) + ' ' + capitalizar(partes[2]);
                         }
                     }
