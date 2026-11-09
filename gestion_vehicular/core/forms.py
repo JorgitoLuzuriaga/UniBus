@@ -314,14 +314,50 @@ CuentaUsuario = get_user_model()
 # ==========================================
 # FORMULARIO DE REGISTRO UNL
 # ==========================================
+from django import forms
+from django.contrib.auth.forms import UserCreationForm
+from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
+
+# Definición del modelo de usuario personalizado de tu proyecto (Cuenta)
+CuentaUsuario = get_user_model()
+
+# Aplanamos tu diccionario de carreras para obtener las tuplas correctas
+CARRERAS_UNIFICADAS = []
+for lista_carreras in CARRERAS_POR_FACULTAD.values():
+    for codigo, nombre_legible in lista_carreras:
+        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
+            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
+
+# ==========================================
+# FORMULARIO DE RESERVA
+# ==========================================
+class ReservaForm(forms.ModelForm):
+    carrera_filtro = forms.ChoiceField(
+        choices=CARRERAS_UNIFICADAS, 
+        label="Filtrar Carrera", 
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
+    )
+    estudiantes_seleccion = forms.ModelMultipleChoiceField(
+        queryset=Estudiante.objects.all(), 
+        label="Seleccionar Estudiantes", 
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'estudiante-checkbox'})
+    )
+
+
+# ==========================================
+# FORMULARIO DE REGISTRO UNL (SIN CONFIRMACIÓN)
+# ==========================================
 class RegistroUnlForm(UserCreationForm):
     error_messages = {
         'password_mismatch': 'Las contraseñas no coinciden.',
     }
     
+    # Se eliminó 'correo_confirmacion' de la lista de orden
     field_order = [
         'correo', 
-        'correo_confirmacion', 
         'nombres', 
         'apellidos', 
         'cedula', 
@@ -337,15 +373,6 @@ class RegistroUnlForm(UserCreationForm):
             'class': 'form-control',
             'placeholder': 'nombre.apellido@unl.edu.ec',
             'autocomplete': 'email',
-        }),
-    )
-    correo_confirmacion = forms.EmailField(
-        required=True,
-        label='Confirmar correo institucional',
-        widget=forms.EmailInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Repite el correo institucional',
-            'autocomplete': 'off',
         }),
     )
     nombres = forms.CharField(
@@ -393,9 +420,9 @@ class RegistroUnlForm(UserCreationForm):
 
     class Meta:
         model = CuentaUsuario
+        # Se eliminó 'correo_confirmacion' de los campos permitidos del Meta
         fields = [
             'correo', 
-            'correo_confirmacion', 
             'nombres', 
             'apellidos', 
             'cedula', 
@@ -444,11 +471,8 @@ class RegistroUnlForm(UserCreationForm):
     def clean(self):
         cleaned = super().clean()
         email = cleaned.get('correo')
-        confirmacion = (cleaned.get('correo_confirmacion') or '').strip().lower()
         
-        if email and confirmacion and email != confirmacion:
-            self.add_error('correo_confirmacion', 'La confirmación no coincide con el correo institucional.')
-        
+        # Se eliminó la validación y comparación de 'correo_confirmacion'
         if email:
             nombres, apellidos = nombres_desde_correo(email)
             if not nombres or not apellidos:
