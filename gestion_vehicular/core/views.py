@@ -19,11 +19,9 @@ from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from .forms import LoginConCaptchaForm
 from .models import Reserva, Vehiculo, EstadoReserva, Conductor, Asistencia, EstadoAsistencia, Cuenta, EstadoOperativo, \
     Notificacion, InformeViaje, IntentoRegistro
-from .forms import ReservaForm, VehiculoForm, GestionReservaForm, UnlAuthenticationForm, PerfilUsuarioForm, RegistroUnlForm, \
-    InformeViajeForm
+from .forms import ReservaForm, VehiculoForm, GestionReservaForm, UnlAuthenticationForm, PerfilUsuarioForm, RegistroUnlForm, InformeViajeForm
 from .correos import enviar_confirmacion_registro, notificar_registro_a_admins
 
 User = get_user_model()
@@ -31,7 +29,6 @@ User = get_user_model()
 # --- AUTENTICACIÓN ---
 class UnlLoginView(LoginView):
     template_name = 'registration/login.html'
-    authentication_form = LoginConCaptchaForm
     authentication_form = UnlAuthenticationForm
     redirect_authenticated_user = True
 

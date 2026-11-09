@@ -1,110 +1,26 @@
 from django import forms
+from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
-from django.core.exceptions import ValidationError
 from django.contrib.auth.tokens import default_token_generator
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from django.utils import timezone
-from django.contrib.auth.forms import AuthenticationForm
+from django.utils.safestring import mark_safe
+from anymail.message import AnymailMessage
 from django_recaptcha.fields import ReCaptchaField
 from django_recaptcha.widgets import ReCaptchaV2Checkbox
-from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import UserCreationForm
-from django.utils.safestring import mark_safe
-from django.template.loader import render_to_string
-from anymail.message import AnymailMessage
+
 from .models import (
     CARRERA_A_FACULTAD, CARRERAS_POR_FACULTAD, Conductor, Facultad, Reserva,
-    Vehiculo, Docente, Estudiante, Carrera, Cuenta, InformeViaje,
+    Vehiculo, Docente, Estudiante, Carrera, InformeViaje
 )
 from .validaciones import correo_institucional_existe, nombres_desde_correo, validar_cedula
 
+User = get_user_model()
 
-# --- LOGIN PERSONALIZADO ---
-class UnlAuthenticationForm(AuthenticationForm):
-    username = forms.CharField(widget=forms.TextInput(attrs={
-        'class': 'form-control',
-        'placeholder': 'usuario@unl.edu.ec',
-        'autofocus': True
-    }))
-    password = forms.CharField(widget=forms.PasswordInput(attrs={
-        'class': 'form-control',
-        'placeholder': 'Contraseña',
-    }))
-    captcha = ReCaptchaField(
-    label='',
-    widget=ReCaptchaV2Checkbox(api_params={'hl': 'es'}),
-    error_messages={'required': 'Confirma que no eres un robot.'},
-)
-
-    def clean_username(self):
-        # Ahora el método limpia y valida el campo 'username'
-        email = (self.cleaned_data.get('username') or '').strip().lower()
-        if not email.endswith('@unl.edu.ec'):
-            raise forms.ValidationError('Solo se permiten correos institucionales @unl.edu.ec.')
-        if User.objects.filter(username__iexact=email).exists():
-            raise forms.ValidationError('Este correo ya se encuentra registrado.')
-        existe = correo_institucional_existe(email)
-        if existe is False:
-            raise forms.ValidationError('El correo no existe.')
-        return email
-
-
-# --- RECUPERACIÓN DE CONTRASEÑA ---
-class UnlPasswordResetForm(PasswordResetForm):
-    def get_users(self, email):
-        """Buscar usuarios por 'correo' y 'activo'."""
-        email_field_name = 'correo'
-        active_users = Cuenta._default_manager.filter(
-            **{
-                '%s__iexact' % email_field_name: email,
-                'activo': True,
-            }
-        )
-        return (u for u in active_users if u.has_usable_password())
-
-    def save(self, domain_override=None, subject_template_name='registration/password_reset_subject.txt',
-             email_template_name='registration/password_reset_email.html', use_https=False,
-             token_generator=default_token_generator, from_email=None, request=None, 
-             html_email_template_name=None, **kwargs):
-        
-        # Recuperamos el contexto extra enviado por Django si es que existe
-        extra_email_context = kwargs.get('extra_email_context')
-
-        for user in self.get_users(self.cleaned_data["email"]):
-            context = {
-                'email': user.correo,
-                'domain': domain_override or (request.get_host() if request else ''),
-                'site_name': 'Gestión de Transporte UNL',
-                'uid': urlsafe_base64_encode(force_bytes(user.pk)),
-                'user': user,
-                'token': token_generator.make_token(user),
-                'protocol': 'https' if use_https or (request and request.is_secure()) else 'http',
-            }
-            
-            # Si Django envió contexto extra (como en Django 6.x), lo unificamos
-            if extra_email_context is not None:
-                context.update(extra_email_context)
-            
-            subject = render_to_string(subject_template_name, context).strip()
-            body = render_to_string(email_template_name, context)
-
-            # FORZADO POR API HTTP DE BREVO (Inmune a los bloqueos de Render)
-            message = AnymailMessage(
-                subject=subject,
-                body=body,
-                from_email="Gestión de Transporte UNL <jorge.luzuriaga@unl.edu.ec>",
-                to=[user.correo],
-            )
-            
-            if html_email_template_name:
-                html_email = render_to_string(html_email_template_name, context)
-                message.attach_alternative(html_email, "text/html")
-                
-            message.send()
-
-
+# --- AYUDA DE CONTRASEÑA GLOBAL ---
 AYUDA_CONTRASENA = mark_safe(
     '<ul class="mb-0 ps-3">'
     '<li>No puede parecerse demasiado a tus datos personales.</li>'
@@ -114,296 +30,57 @@ AYUDA_CONTRASENA = mark_safe(
     '</ul>'
 )
 
-
-class UnlSetPasswordForm(SetPasswordForm):
-    error_messages = {
-        'password_mismatch': 'Las contraseñas no coinciden.',
-    }
-
-    def __init__(self, user, *args, **kwargs):
-        super().__init__(user, *args, **kwargs)
-        self.fields['new_password1'].label = 'Nueva contraseña'
-        self.fields['new_password1'].help_text = AYUDA_CONTRASENA
-        self.fields['new_password1'].widget.attrs.update({
-            'class': 'form-control',
-            'placeholder': 'Nueva contraseña',
-        })
-        self.fields['new_password2'].label = 'Confirmar nueva contraseña'
-        self.fields['new_password2'].widget.attrs.update({
-            'class': 'form-control',
-            'placeholder': 'Repite la nueva contraseña',
-        })
+# --- APLANADO DE CARRERAS ÚNICO ---
+CARRERAS_UNIFICADAS = []
+for lista_carreras in CARRERAS_POR_FACULTAD.values():
+    for codigo, nombre_legible in lista_carreras:
+        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
+            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
 
 
+# --- WIDGET PERSONALIZADO PARA SELECT EN EL FRONTEND ---
 class CarreraPorFacultadSelect(forms.Select):
     def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
         option = super().create_option(name, value, label, selected, index, subindex=subindex, attrs=attrs)
         facultad = CARRERA_A_FACULTAD.get(str(value))
         if facultad:
-            option['attrs']['data-facultad'] = facultad
+            option['attrs']['data-facultad'] = facultad.value if hasattr(facultad, 'value') else str(facultad)
         return option
 
-CARRERAS_UNIFICADAS = []
-for lista_carreras in CARRERAS_POR_FACULTAD.values():
-    for codigo, nombre_legible in lista_carreras:
-        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
-            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
 
-# --- PERFIL DE USUARIO ---
-class PerfilUsuarioForm(forms.ModelForm):
-    class Meta:
-        model = Docente  # Modelo referencial
-        fields = ['nombres', 'apellidos', 'cedula']
-        widgets = {
-            'nombres': forms.TextInput(attrs={'class': 'form-control'}),
-            'apellidos': forms.TextInput(attrs={'class': 'form-control'}),
-            'cedula': forms.TextInput(attrs={'class': 'form-control'}),
-        }
-
-
-# --- GESTIÓN DE VEHÍCULOS (CON VALIDACIÓN DE LICENCIA) ---
-class VehiculoForm(forms.ModelForm):
-    class Meta:
-        model = Vehiculo
-        fields = ['placa', 'modelo', 'tipoVehiculo', 'aforo', 'universidad', 'conductor', 'estado', 'condicion',
-                  'disponibilidad']
-        widgets = {
-            'placa': forms.TextInput(attrs={'class': 'form-control'}),
-            'modelo': forms.TextInput(attrs={'class': 'form-control'}),
-            'tipoVehiculo': forms.Select(attrs={'class': 'form-select'}),
-            'aforo': forms.NumberInput(attrs={'class': 'form-control'}),
-            'universidad': forms.Select(attrs={'class': 'form-select'}),
-            'conductor': forms.Select(attrs={'class': 'form-select'}),
-            'estado': forms.Select(attrs={'class': 'form-select bg-light'}),
-            'condicion': forms.Select(attrs={'class': 'form-select'}),
-            'disponibilidad': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if 'conductor' in self.fields:
-            self.fields['conductor'].queryset = self.fields['conductor'].queryset.filter(disponibilidad=True)
-
-    def clean(self):
-        cleaned_data = super().clean()
-        conductor = cleaned_data.get('conductor')
-        tipo_vehiculo = cleaned_data.get('tipoVehiculo')
-
-        if conductor and tipo_vehiculo:
-            licencia = conductor.tipoLicencia
-            # REGLAS DE NEGOCIO:
-            if tipo_vehiculo == 'BUS' and licencia not in ['D', 'E']:
-                self.add_error('conductor', f"Un BUS requiere licencia Tipo D o E. El conductor tiene Tipo {licencia}.")
-            elif tipo_vehiculo == 'BUSETA' and licencia not in ['D', 'E']:
-                self.add_error('conductor',
-                               f"Una BUSETA requiere licencia Tipo D o E. El conductor tiene Tipo {licencia}.")
-            elif licencia not in ['C', 'D', 'E']:
-                self.add_error('conductor', f"Licencia Tipo {licencia} no válida para transporte institucional.")
-
-        return cleaned_data
-
-
-# --- GESTIÓN DE RESERVAS ADMIN (CON VALIDACIÓN DE LICENCIA) ---
-class GestionReservaForm(forms.ModelForm):
-    class Meta:
-        model = Reserva
-        fields = ['estado', 'vehiculo', 'conductor']
-        widgets = {
-            'estado': forms.Select(attrs={'class': 'form-select'}),
-            'vehiculo': forms.Select(attrs={'class': 'form-select'}),
-            'conductor': forms.Select(attrs={'class': 'form-select'}),
-        }
-
-    def clean(self):
-        cleaned_data = super().clean()
-        vehiculo = cleaned_data.get('vehiculo')
-        conductor = cleaned_data.get('conductor')
-
-        if vehiculo and conductor:
-            tipo_vehiculo = vehiculo.tipoVehiculo
-            licencia = conductor.tipoLicencia
-            if tipo_vehiculo == 'BUS' and licencia not in ['D', 'E']:
-                self.add_error('conductor', f"Error: Este conductor (Licencia {licencia}) no puede conducir un BUS.")
-            elif tipo_vehiculo == 'BUSETA' and licencia not in ['D', 'E']:
-                self.add_error('conductor',
-                               f"Error: Este conductor (Licencia {licencia}) no puede conducir una BUSETA.")
-
-        return cleaned_data
-
-
-# --- SOLICITUD DE RESERVA (DOCENTE) ---
-class ReservaForm(forms.ModelForm):
-    carrera_filtro = forms.ChoiceField(
-        choices=CARRERAS_UNIFICADAS, # 👈 Cambiado aquí
-        label="Filtrar Carrera", 
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
-    )
-    estudiantes_seleccion = forms.ModelMultipleChoiceField(
-        queryset=Estudiante.objects.all(), label="Seleccionar Estudiantes", required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'estudiante-checkbox'})
-    )
-
-    class Meta:
-        model = Reserva
-        fields = ['motivo', 'aforo', 'fechaInicio', 'fechaFin', 'destino_canton', 'destino_parroquia',
-                  'destino_calle_principal', 'destino_calle_secundaria']
-        widgets = {
-            'motivo': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Ej: Gira académica'}),
-            'aforo': forms.NumberInput(attrs={'class': 'form-control'}),
-            'fechaInicio': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'fechaFin': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'destino_canton': forms.TextInput(attrs={'class': 'form-control'}),
-            'destino_parroquia': forms.TextInput(attrs={'class': 'form-control'}),
-            'destino_calle_principal': forms.TextInput(attrs={'class': 'form-control'}),
-            'destino_calle_secundaria': forms.TextInput(attrs={'class': 'form-control'}),
-        }
-
-    def clean(self):
-        cleaned_data = super().clean()
-        inicio = cleaned_data.get("fechaInicio")
-        fin = cleaned_data.get("fechaFin")
-
-        if inicio and fin:
-            if inicio > fin:
-                raise forms.ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
-            if inicio < timezone.now():
-                raise forms.ValidationError("No puedes crear reservas en el pasado.")
-        return cleaned_data
-
-
-# --- INFORME DE VIAJE (CONDUCTOR) ---
-class InformeViajeForm(forms.ModelForm):
-    class Meta:
-        model = InformeViaje
-        fields = ['kilometraje_final', 'nivel_combustible', 'novedades']
-        widgets = {
-            'kilometraje_final': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 120500'}),
-            'nivel_combustible': forms.Select(attrs={'class': 'form-select'}),
-            'novedades': forms.Textarea(
-                attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Novedades mecánicas o incidentes...'}),
-        }
-
-class LoginConCaptchaForm(AuthenticationForm):
+# --- 1. LOGIN PERSONALIZADO (CON CAPTCHA Y VALIDACIÓN CORRECTA) ---
+class UnlAuthenticationForm(AuthenticationForm):
+    username = forms.CharField(widget=forms.TextInput(attrs={
+        'class': 'form-control',
+        'placeholder': 'usuario@unl.edu.ec',
+        'autofocus': True
+    }), label="Correo Institucional")
+    
+    password = forms.CharField(widget=forms.PasswordInput(attrs={
+        'class': 'form-control',
+        'placeholder': 'Contraseña',
+    }))
+    
     captcha = ReCaptchaField(
         label='',
-        widget=ReCaptchaV2Checkbox(api_params={'hl': 'es'}),  # captcha en español
+        widget=ReCaptchaV2Checkbox(api_params={'hl': 'es'}),
         error_messages={'required': 'Confirma que no eres un robot.'},
     )
 
-User = get_user_model()
-
-class ReservaForm(forms.ModelForm):
-    carrera_filtro = forms.ChoiceField(
-        choices=CARRERAS_UNIFICADAS, 
-        label="Filtrar Carrera", 
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
-    )
-    estudiantes_seleccion = forms.ModelMultipleChoiceField(
-        queryset=Estudiante.objects.all(), 
-        label="Seleccionar Estudiantes", 
-        required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'estudiante-checkbox'})
-    )
-    # ... conserva aquí los campos Meta o lógica interna de ReservaForm si los tenías ...
+    def clean_username(self):
+        email = (self.cleaned_data.get('username') or '').strip().lower()
+        if not email.endswith('@unl.edu.ec'):
+            raise forms.ValidationError('Solo se permiten correos institucionales @unl.edu.ec.')
+        return email
 
 
-CuentaUsuario = get_user_model()
-
-# ==========================================
-# FORMULARIO DE REGISTRO UNL
-# ==========================================
-from django import forms
-from django.contrib.auth.forms import UserCreationForm
-from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
-
-# Definición del modelo de usuario personalizado de tu proyecto (Cuenta)
-CuentaUsuario = get_user_model()
-
-# Aplanamos tu diccionario de carreras para obtener las tuplas correctas
-CARRERAS_UNIFICADAS = []
-for lista_carreras in CARRERAS_POR_FACULTAD.values():
-    for codigo, nombre_legible in lista_carreras:
-        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
-            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
-
-# ==========================================
-# FORMULARIO DE RESERVA
-# ==========================================
-class ReservaForm(forms.ModelForm):
-    carrera_filtro = forms.ChoiceField(
-        choices=CARRERAS_UNIFICADAS, 
-        label="Filtrar Carrera", 
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
-    )
-    estudiantes_seleccion = forms.ModelMultipleChoiceField(
-        queryset=Estudiante.objects.all(), 
-        label="Seleccionar Estudiantes", 
-        required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'estudiante-checkbox'})
-    )
-
-
-from django import forms
-from django.contrib.auth.forms import UserCreationForm
-from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
-
-# Definición del modelo de usuario personalizado de tu proyecto (Cuenta)
-CuentaUsuario = get_user_model()
-
-# Aplanamos tu diccionario de carreras para obtener las tuplas correctas
-CARRERAS_UNIFICADAS = []
-for lista_carreras in CARRERAS_POR_FACULTAD.values():
-    for codigo, nombre_legible in lista_carreras:
-        if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
-            CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
-
-# Construimos un mapa inverso dinámico garantizado en base a tu diccionario exacto
-CARRERA_A_FACULTAD_DINAMICO = {}
-for fac, lista_carreras in CARRERAS_POR_FACULTAD.items():
-    for codigo_carrera, _ in lista_carreras:
-        # Extraemos el valor del enum (ej: si es Facultad.FEAC de tipo Enum, guarda 'FEAC')
-        valor_facultad = fac.value if hasattr(fac, 'value') else str(fac)
-        CARRERA_A_FACULTAD_DINAMICO[codigo_carrera] = valor_facultad
-
-
-class ReservaForm(forms.ModelForm):
-    carrera_filtro = forms.ChoiceField(
-        choices=CARRERAS_UNIFICADAS, 
-        label="Filtrar Carrera", 
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
-    )
-    estudiantes_seleccion = forms.ModelMultipleChoiceField(
-        queryset=Estudiante.objects.all(), 
-        label="Seleccionar Estudiantes", 
-        required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'estudiante-checkbox'})
-    )
-
-
-# ==========================================
-# FORMULARIO DE REGISTRO UNL
-# ==========================================
-class RegistroUnlForm(UserCreationForm):
+# --- 2. REGISTRO DE USUARIO UNL (CORREGIDO SIN DUPLICADOS) ---
+class RegistroUnlForm(forms.ModelForm):
     error_messages = {
         'password_mismatch': 'Las contraseñas no coinciden.',
     }
     
-    # Orden de renderizado en el HTML (Sin correo_confirmacion)
-    field_order = [
-        'correo', 
-        'nombres', 
-        'apellidos', 
-        'cedula', 
-        'facultad', 
-        'carrera', 
-        'tipo_licencia'
-    ]
+    field_order = ['correo', 'nombres', 'apellidos', 'cedula', 'facultad', 'carrera', 'tipo_licencia', 'password1', 'password2']
 
     correo = forms.EmailField(
         required=True,
@@ -456,43 +133,36 @@ class RegistroUnlForm(UserCreationForm):
         ],
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
+    password1 = forms.CharField(
+        label='Contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text=AYUDA_CONTRASENA
+    )
+    password2 = forms.CharField(
+        label='Confirmar contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text='Vuelve a escribir la contraseña.'
+    )
 
     class Meta:
-        model = CuentaUsuario
-        fields = [
-            'correo', 
-            'nombres', 
-            'apellidos', 
-            'cedula', 
-            'facultad', 
-            'carrera', 
-            'tipo_licencia'
-        ]
+        model = User
+        fields = ['correo', 'nombres', 'apellidos', 'cedula', 'facultad', 'carrera', 'tipo_licencia']
 
     def __init__(self, *args, verificar_correo=True, **kwargs):
         self.verificar_correo = verificar_correo
         super().__init__(*args, **kwargs)
-        
-        # Removemos el campo username automático heredado de UserCreationForm
-        if 'username' in self.fields:
-            del self.fields['username']
-            
-        for nombre in ('password1', 'password2'):
-            self.fields[nombre].widget.attrs.update({'class': 'form-control'})
-        self.fields['password1'].label = 'Contraseña'
-        self.fields['password1'].help_text = AYUDA_CONTRASENA
-        self.fields['password2'].label = 'Confirmar contraseña'
-        self.fields['password2'].help_text = 'Vuelve a escribir la contraseña.'
 
     def clean_correo(self):
         email = (self.cleaned_data.get('correo') or '').strip().lower()
         if not email.endswith('@unl.edu.ec'):
             raise forms.ValidationError('Solo se permiten correos institucionales @unl.edu.ec.')
-        if CuentaUsuario.objects.filter(correo__iexact=email).exists():
+        if User.objects.filter(correo__iexact=email).exists():
             raise forms.ValidationError('Este correo ya se encuentra registrado.')
-        existe = correo_institucional_existe(email)
-        if existe is False:
-            raise forms.ValidationError('El correo no existe.')
+        
+        if self.verificar_correo:
+            existe = correo_institucional_existe(email)
+            if existe is False:
+                raise forms.ValidationError('El correo no existe o no responde en el servidor de la UNL.')
         return email
 
     def clean_cedula(self):
@@ -500,7 +170,7 @@ class RegistroUnlForm(UserCreationForm):
         error = validar_cedula(cedula)
         if error:
             raise forms.ValidationError(error)
-        if (CuentaUsuario.objects.filter(cedula=cedula).exists() or
+        if (User.objects.filter(cedula=cedula).exists() or
                 Estudiante.objects.filter(cedula=cedula).exists() or
                 Docente.objects.filter(cedula=cedula).exists() or
                 Conductor.objects.filter(cedula=cedula).exists()):
@@ -516,8 +186,7 @@ class RegistroUnlForm(UserCreationForm):
             if not nombres or not apellidos:
                 self.add_error(
                     'correo',
-                    'El correo debe tener la forma nombre.apellido@unl.edu.ec. '
-                    'Si incluye una inicial (nombre.x.apellido), esa letra se omite.',
+                    'El correo debe tener la forma nombre.apellido@unl.edu.ec.'
                 )
             else:
                 cleaned['nombres'] = nombres
@@ -528,18 +197,24 @@ class RegistroUnlForm(UserCreationForm):
         facultad = cleaned.get('facultad')
         carrera = cleaned.get('carrera')
         
-        # VALIDACIÓN DEL ENUM CORREGIDA USANDO .VALUE
+        # --- VALIDACIÓN CORREGIDA CON .VALUE COMPARANDO CADENAS LIMPIAS ---
         if facultad and carrera:
             facultad_enum = CARRERA_A_FACULTAD.get(carrera)
-            facultad_esperada_str = facultad_enum.value if facultad_enum else None
+            facultad_esperada_str = facultad_enum.value if hasattr(facultad_enum, 'value') else str(facultad_enum)
             
-            if facultad_esperada_str != str(facultad):
+            if str(facultad_esperada_str) != str(facultad):
                 self.add_error('carrera', 'Esta carrera no pertenece a la facultad seleccionada.')
                 
+        p1 = cleaned.get('password1')
+        p2 = cleaned.get('password2')
+        if p1 and p2 and p1 != p2:
+            self.add_error('password2', self.error_messages['password_mismatch'])
+
         return cleaned
 
     def save(self, commit=True):
         user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password1'])
         user.correo = self.cleaned_data['correo']
         user.nombres = self.cleaned_data['nombres']
         user.apellidos = self.cleaned_data['apellidos']
@@ -552,3 +227,198 @@ class RegistroUnlForm(UserCreationForm):
         if commit:
             user.save()
         return user
+
+
+# --- 3. RECUPERACIÓN DE CONTRASEÑA ---
+class UnlPasswordResetForm(PasswordResetForm):
+    def get_users(self, email):
+        active_users = User._default_manager.filter(correo__iexact=email, activo=True)
+        return (u for u in active_users if u.has_usable_password())
+
+    def save(self, domain_override=None, subject_template_name='registration/password_reset_subject.txt',
+             email_template_name='registration/password_reset_email.html', use_https=False,
+             token_generator=default_token_generator, from_email=None, request=None, 
+             html_email_template_name=None, **kwargs):
+        
+        extra_email_context = kwargs.get('extra_email_context')
+
+        for user in self.get_users(self.cleaned_data["email"]):
+            context = {
+                'email': user.correo,
+                'domain': domain_override or (request.get_host() if request else ''),
+                'site_name': 'Gestión de Transporte UNL',
+                'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+                'user': user,
+                'token': token_generator.make_token(user),
+                'protocol': 'https' if use_https or (request and request.is_secure()) else 'http',
+            }
+            
+            if extra_email_context is not None:
+                context.update(extra_email_context)
+            
+            subject = render_to_string(subject_template_name, context).strip()
+            body = render_to_string(email_template_name, context)
+
+            message = AnymailMessage(
+                subject=subject,
+                body=body,
+                from_email="Gestión de Transporte UNL <jorge.luzuriaga@unl.edu.ec>",
+                to=[user.correo],
+            )
+            
+            if html_email_template_name:
+                html_email = render_to_string(html_email_template_name, context)
+                message.attach_alternative(html_email, "text/html")
+                
+            message.send()
+
+
+class UnlSetPasswordForm(SetPasswordForm):
+    error_messages = {
+        'password_mismatch': 'Las contraseñas no coinciden.',
+    }
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(user, *args, **kwargs)
+        self.fields['new_password1'].label = 'Nueva contraseña'
+        self.fields['new_password1'].help_text = AYUDA_CONTRASENA
+        self.fields['new_password1'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Nueva contraseña',
+        })
+        self.fields['new_password2'].label = 'Confirmar nueva contraseña'
+        self.fields['new_password2'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Repite la nueva contraseña',
+        })
+# --- 4. SOLICITUD DE RESERVA (DOCENTE) ---
+class ReservaForm(forms.ModelForm):
+    carrera_filtro = forms.ChoiceField(
+        choices=CARRERAS_UNIFICADAS, 
+        label="Filtrar Carrera", 
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
+    )
+    estudiantes_seleccion = forms.ModelMultipleChoiceField(
+        queryset=Estudiante.objects.all(), 
+        label="Seleccionar Estudiantes", 
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'estudiante-checkbox'})
+    )
+
+    class Meta:
+        model = Reserva
+        fields = ['motivo', 'aforo', 'fechaInicio', 'fechaFin', 'destino_canton', 'destino_parroquia',
+                  'destino_calle_principal', 'destino_calle_secundaria']
+        widgets = {
+            'motivo': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Ej: Gira académica'}),
+            'aforo': forms.NumberInput(attrs={'class': 'form-control'}),
+            'fechaInicio': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'fechaFin': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'destino_canton': forms.TextInput(attrs={'class': 'form-control'}),
+            'destino_parroquia': forms.TextInput(attrs={'class': 'form-control'}),
+            'destino_calle_principal': forms.TextInput(attrs={'class': 'form-control'}),
+            'destino_calle_secundaria': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        inicio = cleaned_data.get("fechaInicio")
+        fin = cleaned_data.get("fechaFin")
+
+        if inicio and fin:
+            if inicio > fin:
+                raise forms.ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
+            if inicio < timezone.now():
+                raise forms.ValidationError("No puedes crear reservas en el pasado.")
+        return cleaned_data
+
+
+# --- 5. PERFIL DE USUARIO ---
+class PerfilUsuarioForm(forms.ModelForm):
+    class Meta:
+        model = Docente  
+        fields = ['nombres', 'apellidos', 'cedula']
+        widgets = {
+            'nombres': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellidos': forms.TextInput(attrs={'class': 'form-control'}),
+            'cedula': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+
+# --- 6. GESTIÓN DE VEHÍCULOS ---
+class VehiculoForm(forms.ModelForm):
+    class Meta:
+        model = Vehiculo
+        fields = ['placa', 'modelo', 'tipoVehiculo', 'aforo', 'universidad', 'conductor', 'estado', 'condicion', 'disponibilidad']
+        widgets = {
+            'placa': forms.TextInput(attrs={'class': 'form-control'}),
+            'modelo': forms.TextInput(attrs={'class': 'form-control'}),
+            'tipoVehiculo': forms.Select(attrs={'class': 'form-select'}),
+            'aforo': forms.NumberInput(attrs={'class': 'form-control'}),
+            'universidad': forms.Select(attrs={'class': 'form-select'}),
+            'conductor': forms.Select(attrs={'class': 'form-select'}),
+            'estado': forms.Select(attrs={'class': 'form-select bg-light'}),
+            'condicion': forms.Select(attrs={'class': 'form-select'}),
+            'disponibilidad': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'conductor' in self.fields:
+            self.fields['conductor'].queryset = self.fields['conductor'].queryset.filter(disponibilidad=True)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        conductor = cleaned_data.get('conductor')
+        tipo_vehiculo = cleaned_data.get('tipoVehiculo')
+
+        if conductor and tipo_vehiculo:
+            licencia = conductor.tipoLicencia
+            if tipo_vehiculo == 'BUS' and licencia not in ['D', 'E']:
+                self.add_error('conductor', f"Un BUS requiere licencia Tipo D o E. El conductor tiene Tipo {licencia}.")
+            elif tipo_vehiculo == 'BUSETA' and licencia not in ['D', 'E']:
+                self.add_error('conductor', f"Una BUSETA requiere licencia Tipo D o E. El conductor tiene Tipo {licencia}.")
+            elif licencia not in ['C', 'D', 'E']:
+                self.add_error('conductor', f"Licencia Tipo {licencia} no válida para transporte institucional.")
+
+        return cleaned_data
+
+
+# --- 7. GESTIÓN DE RESERVAS (ADMINISTRADOR) ---
+class GestionReservaForm(forms.ModelForm):
+    class Meta:
+        model = Reserva
+        fields = ['estado', 'vehiculo', 'conductor']
+        widgets = {
+            'estado': forms.Select(attrs={'class': 'form-select'}),
+            'vehiculo': forms.Select(attrs={'class': 'form-select'}),
+            'conductor': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        vehiculo = cleaned_data.get('vehiculo')
+        conductor = cleaned_data.get('conductor')
+
+        if vehiculo and conductor:
+            tipo_vehiculo = vehiculo.tipoVehiculo
+            licencia = conductor.tipoLicencia
+            if tipo_vehiculo == 'BUS' and licencia not in ['D', 'E']:
+                self.add_error('conductor', f"Error: Este conductor (Licencia {licencia}) no puede conducir un BUS.")
+            elif tipo_vehiculo == 'BUSETA' and licencia not in ['D', 'E']:
+                self.add_error('conductor', f"Error: Este conductor (Licencia {licencia}) no puede conducir una BUSETA.")
+
+        return cleaned_data
+
+
+# --- 8. INFORME DE VIAJE (CONDUCTOR) ---
+class InformeViajeForm(forms.ModelForm):
+    class Meta:
+        model = InformeViaje
+        fields = ['kilometraje_final', 'nivel_combustible', 'novedades']
+        widgets = {
+            'kilometraje_final': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 120500'}),
+            'nivel_combustible': forms.Select(attrs={'class': 'form-select'}),
+            'novedades': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Novedades mecánicas o incidentes...'}),
+        }

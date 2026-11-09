@@ -10,9 +10,8 @@ from .models import (
     Reserva,
     Conductor,
     Universidad,
-    Facultad,
-    Carrera,
 )
+from .models import Facultad, Carrera
 
 
 # --- FORMULARIO PERSONALIZADO ---

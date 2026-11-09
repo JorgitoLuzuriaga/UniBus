@@ -134,44 +134,82 @@ document.addEventListener('DOMContentLoaded', function() {
     const correoInput = document.getElementById('id_correo');
     const nombresInput = document.getElementById('id_nombres');
     const apellidosInput = document.getElementById('id_apellidos');
+    const facultadSelect = document.getElementById('id_facultad');
+    const carreraSelect = document.getElementById('id_carrera');
 
-    // Cambiamos dinámicamente los campos para permitir edición manual en caso de que lo necesiten
+    // Habilitar edición manual eliminando el atributo readonly de Django
     if (nombresInput) nombresInput.removeAttribute('readonly');
     if (apellidosInput) apellidosInput.removeAttribute('readonly');
 
+    // 1. SUGERENCIA AUTOMÁTICA DE NOMBRES POR CORREO
     if (correoInput && nombresInput && apellidosInput) {
-        correoInput.addEventListener('input', function() {
+        correoInput.addEventListener('blur', function() { // Cambiado a 'blur' para que actúe al salir del campo
             const correo = this.value.trim().toLowerCase();
             
             if (correo.includes('@unl.edu.ec')) {
-                const parteUsuario = correo.split('@')[0]; // Extrae la parte izquierda antes del @
-                const partes = parteUsuario.split('.');    // Separa por puntos
+                const parteUsuario = correo.split('@')[0];
+                const partes = parteUsuario.split('.');
 
                 if (partes.length >= 2) {
                     const capitalizar = (str) => str.charAt(0).toUpperCase() + str.slice(1);
-
                     let nombreSugerido = capitalizar(partes[0]);
                     let apellidoSugerido = '';
 
                     if (partes.length === 2) {
-                        // Formato: nombre.apellido
                         apellidoSugerido = capitalizar(partes[1]);
                     } else if (partes.length >= 3) {
-                        // Formato con inicial intermedia: nombre.l.apellido
                         if (partes[1].length === 1) {
                             apellidoSugerido = capitalizar(partes[2]);
                         } else {
-                            // Formato con múltiples apellidos o nombres unidos por puntos
                             apellidoSugerido = capitalizar(partes[1]) + ' ' + capitalizar(partes[2]);
                         }
                     }
 
-                    nombresInput.value = nombreSugerido;
-                    apellidosInput.value = apellidoSugerido;
+                    // Solo autocompleta si el usuario no ha escrito nada propio todavía
+                    if (!nombresInput.value) nombresInput.value = nombreSugerido;
+                    if (!apellidosInput.value) apellidosInput.value = apellidoSugerido;
                 }
             }
         });
     }
+
+    // 2. FILTRADO DINÁMICO DE CARRERAS SEGÚN LA FACULTAD SELECCIONADA
+    if (facultadSelect && carreraSelect) {
+        const todasLasOpciones = Array.from(carreraSelect.options);
+
+        function filtrarCarreras() {
+            const facultadSeleccionada = facultadSelect.value;
+            
+            // Limpiamos el selector de carreras
+            carreraSelect.innerHTML = '';
+
+            // Añadir una opción inicial vacía o por defecto si es necesario
+            let primeraOpcionValida = null;
+
+            todasLasOpciones.forEach(opcion => {
+                const facultadDeLaCarrera = opcion.getAttribute('data-facultad');
+                
+                // Si la opción no tiene facultad asignada o coincide con la seleccionada
+                if (!facultadDeLaCarrera || facultadDeLaCarrera === facultadSeleccionada) {
+                    carreraSelect.appendChild(opcion);
+                    if (!primeraOpcionValida && opcion.value) {
+                        primeraOpcionValida = opcion.value;
+                    }
+                }
+            });
+
+            // Seleccionar automáticamente la primera carrera válida del grupo filtrado
+            if (primeraOpcionValida) {
+                carreraSelect.value = primeraOpcionValida;
+            }
+        }
+    }
+    // Filtrar inmediatamente al cargar la página por primera vez
+    filtrarCarreras();
+    // Escuchar cuando el usuario cambie de Facultad
+    facultadSelect.addEventListener('change', filtrarCarreras);
 });
+
+
 </script>
 {% endblock %}
