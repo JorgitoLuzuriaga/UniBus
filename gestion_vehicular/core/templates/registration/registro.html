@@ -137,15 +137,55 @@ document.addEventListener('DOMContentLoaded', function() {
     const facultadSelect = document.getElementById('id_facultad');
     const carreraSelect = document.getElementById('id_carrera');
 
-    // Habilitar edición manual eliminando el atributo readonly de Django
+    // Desbloquear edición manual de nombres
     if (nombresInput) nombresInput.removeAttribute('readonly');
     if (apellidosInput) apellidosInput.removeAttribute('readonly');
 
-    // 1. SUGERENCIA AUTOMÁTICA DE NOMBRES POR CORREO
+    // 1. MAPA DE CARRERAS GENERADO DIRECTAMENTE DESDE MODELOS (Evita fallos de Widgets)
+    // Asocia los códigos de facultad con sus respectivas carreras
+    const mapaCarreras = {
+        'FARNR': ['AGRONOMIA', 'ING_AGRICOLA', 'ING_AMBIENTAL', 'ING_FORESTAL', 'MEDICINA_VETERINARIA'],
+        'FEAC': ['ARTES_MUSICALES', 'ARTES_VISUALES', 'COMUNICACION', 'EDUCACION_BASICA', 'EDUCACION_ESPECIAL', 'EDUCACION_INICIAL', 'PEDAGOGIA_FISICA', 'PEDAGOGIA_LENGUA', 'PEDAGOGIA_CIENCIAS', 'PEDAGOGIA_IDIOMAS', 'PSICOPEDAGOGIA'],
+        'FEIRNNR': ['ARQUITECTURA_SOSTENIBLE', 'COMPUTACION', 'ELECTRICIDAD', 'ELECTROMECANICA', 'AUTOMOTRIZ', 'INGENIERIA_CIVIL', 'MINAS', 'TELECOMUNICACIONES', 'GEOLOGIA'],
+        'FJSA': ['ADMIN_EMPRESAS', 'ADMIN_PUBLICA', 'CONTABILIDAD', 'DERECHO', 'ECONOMIA', 'FINANZAS', 'TRABAJO_SOCIAL', 'TURISMO'],
+        'FSALUD': ['ENFERMERIA', 'LABORATORIO_CLINICO', 'MEDICINA', 'ODONTOLOGIA', 'PSICOLOGIA_CLINICA'],
+        'UEDL': ['ADMIN_EMPRESAS_DIST', 'AGRONEGOCIOS_DIST', 'COMUNICACION_DIST', 'CONTABILIDAD_DIST', 'DERECHO_DIST', 'EDUCACION_BASICA_DIST', 'EDUCACION_INICIAL_DIST', 'PEDAGOGIA_INFO_DIST']
+    };
+
+    if (facultadSelect && carreraSelect) {
+        // Guardamos una copia de todas las opciones originales del HTML
+        const opcionesOriginales = Array.from(carreraSelect.options);
+
+        function filtrarCarreras() {
+            const facultadSeleccionada = facultadSelect.value;
+            const carrerasValidas = mapaCarreras[facultadSeleccionada] || [];
+
+            // Limpiar opciones actuales
+            carreraSelect.innerHTML = '';
+
+            let primeraOpcionPuesta = false;
+
+            opcionesOriginales.forEach(opcion => {
+                // Si la opción está dentro del arreglo de la facultad seleccionada o está vacía
+                if (carrerasValidas.includes(opcion.value) || opcion.value === "") {
+                    carreraSelect.appendChild(opcion);
+                    if (!primeraOpcionPuesta && opcion.value) {
+                        carreraSelect.value = opcion.value;
+                        primeraOpcionPuesta = true;
+                    }
+                }
+            });
+        }
+
+        // Ejecutar al cargar y al cambiar de facultad
+        filtrarCarreras();
+        facultadSelect.addEventListener('change', filtrarCarreras);
+    }
+
+    // 2. SUGERENCIA AUTOMÁTICA DE NOMBRES
     if (correoInput && nombresInput && apellidosInput) {
-        correoInput.addEventListener('blur', function() { // Cambiado a 'blur' para que actúe al salir del campo
+        correoInput.addEventListener('blur', function() {
             const correo = this.value.trim().toLowerCase();
-            
             if (correo.includes('@unl.edu.ec')) {
                 const parteUsuario = correo.split('@')[0];
                 const partes = parteUsuario.split('.');
@@ -165,51 +205,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
-                    // Solo autocompleta si el usuario no ha escrito nada propio todavía
                     if (!nombresInput.value) nombresInput.value = nombreSugerido;
                     if (!apellidosInput.value) apellidosInput.value = apellidoSugerido;
                 }
             }
         });
     }
-
-    // 2. FILTRADO DINÁMICO DE CARRERAS SEGÚN LA FACULTAD SELECCIONADA
-    if (facultadSelect && carreraSelect) {
-        const todasLasOpciones = Array.from(carreraSelect.options);
-
-        function filtrarCarreras() {
-            const facultadSeleccionada = facultadSelect.value;
-            
-            // Limpiamos el selector de carreras
-            carreraSelect.innerHTML = '';
-
-            // Añadir una opción inicial vacía o por defecto si es necesario
-            let primeraOpcionValida = null;
-
-            todasLasOpciones.forEach(opcion => {
-                const facultadDeLaCarrera = opcion.getAttribute('data-facultad');
-                
-                // Si la opción no tiene facultad asignada o coincide con la seleccionada
-                if (!facultadDeLaCarrera || facultadDeLaCarrera === facultadSeleccionada) {
-                    carreraSelect.appendChild(opcion);
-                    if (!primeraOpcionValida && opcion.value) {
-                        primeraOpcionValida = opcion.value;
-                    }
-                }
-            });
-
-            // Seleccionar automáticamente la primera carrera válida del grupo filtrado
-            if (primeraOpcionValida) {
-                carreraSelect.value = primeraOpcionValida;
-            }
-        }
-    }
-    // Filtrar inmediatamente al cargar la página por primera vez
-    filtrarCarreras();
-    // Escuchar cuando el usuario cambie de Facultad
-    facultadSelect.addEventListener('change', filtrarCarreras);
 });
-
-
 </script>
 {% endblock %}

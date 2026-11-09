@@ -177,6 +177,7 @@ class RegistroUnlForm(forms.ModelForm):
             raise forms.ValidationError('Esta cédula ya se encuentra registrada en el sistema.')
         return cedula
 
+    # Reemplaza tu método clean() por este que convierte los Enums de forma robusta:
     def clean(self):
         cleaned = super().clean()
         email = cleaned.get('correo')
@@ -184,10 +185,7 @@ class RegistroUnlForm(forms.ModelForm):
         if email:
             nombres, apellidos = nombres_desde_correo(email)
             if not nombres or not apellidos:
-                self.add_error(
-                    'correo',
-                    'El correo debe tener la forma nombre.apellido@unl.edu.ec.'
-                )
+                self.add_error('correo', 'El correo debe tener la forma nombre.apellido@unl.edu.ec.')
             else:
                 cleaned['nombres'] = nombres
                 cleaned['apellidos'] = apellidos
@@ -197,12 +195,21 @@ class RegistroUnlForm(forms.ModelForm):
         facultad = cleaned.get('facultad')
         carrera = cleaned.get('carrera')
         
-        # --- VALIDACIÓN CORREGIDA CON .VALUE COMPARANDO CADENAS LIMPIAS ---
+        # --- VALIDACIÓN ROBUSTA ANTE ENUMS ---
         if facultad and carrera:
             facultad_enum = CARRERA_A_FACULTAD.get(carrera)
-            facultad_esperada_str = facultad_enum.value if hasattr(facultad_enum, 'value') else str(facultad_enum)
             
-            if str(facultad_esperada_str) != str(facultad):
+            if facultad_enum:
+                # Extraemos el valor de texto ('FARNR', 'FEIRNNR', etc.) sin importar si viene como Enum o String
+                if hasattr(facultad_enum, 'value'):
+                    facultad_esperada_str = str(facultad_enum.value)
+                else:
+                    facultad_esperada_str = str(facultad_enum)
+            else:
+                facultad_esperada_str = ""
+
+            # Normalizamos ambos a strings limpios y en mayúsculas para evitar fallos de matching
+            if facultad_esperada_str.strip().upper() != str(facultad).strip().upper():
                 self.add_error('carrera', 'Esta carrera no pertenece a la facultad seleccionada.')
                 
         p1 = cleaned.get('password1')
