@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.core.exceptions import ValidationError
 from django.contrib.auth.tokens import default_token_generator
 from django.db import transaction
@@ -11,9 +11,14 @@ from django_recaptcha.fields import ReCaptchaField
 from django_recaptcha.widgets import ReCaptchaV2Checkbox
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
+from django.utils.safestring import mark_safe
 from django.template.loader import render_to_string
 from anymail.message import AnymailMessage
-from .models import Conductor, Facultad, Reserva, Vehiculo, Docente, Estudiante, Carrera, Cuenta, InformeViaje
+from .models import (
+    CARRERA_A_FACULTAD, Conductor, Facultad, Reserva,
+    Vehiculo, Docente, Estudiante, Carrera, Cuenta, InformeViaje,
+)
+from .validaciones import correo_institucional_existe, nombres_desde_correo, validar_cedula
 
 
 # --- LOGIN PERSONALIZADO ---
@@ -92,6 +97,46 @@ class UnlPasswordResetForm(PasswordResetForm):
                 message.attach_alternative(html_email, "text/html")
                 
             message.send()
+
+
+AYUDA_CONTRASENA = mark_safe(
+    '<ul class="mb-0 ps-3">'
+    '<li>No puede parecerse demasiado a tus datos personales.</li>'
+    '<li>Debe tener al menos 8 caracteres.</li>'
+    '<li>No puede ser una contraseña de uso muy común.</li>'
+    '<li>No puede ser solo números.</li>'
+    '</ul>'
+)
+
+
+class UnlSetPasswordForm(SetPasswordForm):
+    error_messages = {
+        'password_mismatch': 'Las contraseñas no coinciden.',
+    }
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(user, *args, **kwargs)
+        self.fields['new_password1'].label = 'Nueva contraseña'
+        self.fields['new_password1'].help_text = AYUDA_CONTRASENA
+        self.fields['new_password1'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Nueva contraseña',
+        })
+        self.fields['new_password2'].label = 'Confirmar nueva contraseña'
+        self.fields['new_password2'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Repite la nueva contraseña',
+        })
+
+
+class CarreraPorFacultadSelect(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex=subindex, attrs=attrs)
+        facultad = CARRERA_A_FACULTAD.get(str(value))
+        if facultad:
+            option['attrs']['data-facultad'] = facultad
+        return option
+
 
 # --- PERFIL DE USUARIO ---
 class PerfilUsuarioForm(forms.ModelForm):
@@ -236,60 +281,142 @@ class LoginConCaptchaForm(AuthenticationForm):
 User = get_user_model()
 
 class RegistroUnlForm(UserCreationForm):
-    username = forms.EmailField(required=True, label="Correo Institucional", widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'usuario@unl.edu.ec'}))
-    nombres = forms.CharField(required=True, max_length=100, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombres completos'}))
-    apellidos = forms.CharField(required=True, max_length=100, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellidos completos'}))
-    cedula = forms.CharField(required=True, max_length=20, label="Cédula", widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 110xxxxxx'}))
-    
-    # VOLVEMOS A AGREGAR LOS CAMPOS PARA QUE EL HTML LOS PUEDA PINTAR
+    error_messages = {
+        'password_mismatch': 'Las contraseñas no coinciden.',
+    }
+    correo = forms.EmailField(
+        required=True,
+        label='Correo institucional',
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'nombre.apellido@unl.edu.ec',
+            'autocomplete': 'username',
+        }),
+    )
+    correo_confirmacion = forms.EmailField(
+        required=True,
+        label='Confirmar correo institucional',
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Repite el correo institucional',
+            'autocomplete': 'off',
+        }),
+    )
+    nombres = forms.CharField(
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'class': 'form-control bg-light', 'readonly': 'readonly'}),
+    )
+    apellidos = forms.CharField(
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'class': 'form-control bg-light', 'readonly': 'readonly'}),
+    )
+    cedula = forms.CharField(
+        required=True,
+        max_length=10,
+        label='Cédula',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '10 números',
+            'maxlength': '10',
+            'inputmode': 'numeric',
+        }),
+    )
     facultad = forms.ChoiceField(
-        choices=Facultad.choices,
-        widget=forms.Select(attrs={'class': 'form-select'})
+        choices=[facultad for facultad in Facultad.choices if facultad[0] != Facultad.RNR],
+        widget=forms.Select(attrs={'class': 'form-select'}),
     )
     carrera = forms.ChoiceField(
         choices=Carrera.choices,
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=CarreraPorFacultadSelect(attrs={'class': 'form-select'}),
     )
-
-    tipo_licencia = forms.CharField(
+    tipo_licencia = forms.ChoiceField(
         required=False,
-        max_length=20,
-        label="Tipo de Licencia (Solo Conductores)",
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Tipo E, Tipo D'})
+        label='Tipo de licencia',
+        choices=[
+            ('', 'No aplica'),
+            ('A', 'Tipo A'),
+            ('B', 'Tipo B'),
+            ('C', 'Tipo C'),
+            ('D', 'Tipo D'),
+            ('E', 'Tipo E'),
+        ],
+        widget=forms.Select(attrs={'class': 'form-select'}),
     )
 
     class Meta:
         model = User
-        fields = ['username']
+        fields = ['correo']
 
+    def __init__(self, *args, verificar_correo=True, **kwargs):
+        self.verificar_correo = verificar_correo
+        super().__init__(*args, **kwargs)
+        for nombre in ('password1', 'password2'):
+            self.fields[nombre].widget.attrs.update({'class': 'form-control'})
+        self.fields['password1'].label = 'Contraseña'
+        self.fields['password1'].help_text = AYUDA_CONTRASENA
+        self.fields['password2'].label = 'Confirmar contraseña'
+        self.fields['password2'].help_text = 'Vuelve a escribir la contraseña.'
 
-    def clean_username(self):
-        email = self.cleaned_data.get('username')
+    def clean_correo(self):
+        email = (self.cleaned_data.get('correo') or '').strip().lower()
         if not email.endswith('@unl.edu.ec'):
-            raise forms.ValidationError("Solo se permiten correos institucionales @unl.edu.ec")
-        if User.objects.filter(correo=email).exists():
-            raise forms.ValidationError("Este correo ya se encuentra registrado.")
+            raise forms.ValidationError('Solo se permiten correos institucionales @unl.edu.ec.')
+        if User.objects.filter(correo__iexact=email).exists():
+            raise forms.ValidationError('Este correo ya se encuentra registrado.')
+        existe = correo_institucional_existe(email)
+        if existe is False:
+            raise forms.ValidationError('El correo no existe.')
         return email
 
     def clean_cedula(self):
-        cedula = self.cleaned_data.get('cedula')
-        if (Estudiante.objects.filter(cedula=cedula).exists() or 
-            Docente.objects.filter(cedula=cedula).exists() or 
-            Conductor.objects.filter(cedula=cedula).exists()):
-            raise forms.ValidationError("Esta cédula ya se encuentra registrada en el sistema.")
+        cedula = (self.cleaned_data.get('cedula') or '').strip()
+        error = validar_cedula(cedula)
+        if error:
+            raise forms.ValidationError(error)
+        if (Cuenta.objects.filter(cedula=cedula).exists() or
+                Estudiante.objects.filter(cedula=cedula).exists() or
+                Docente.objects.filter(cedula=cedula).exists() or
+                Conductor.objects.filter(cedula=cedula).exists()):
+            raise forms.ValidationError('Esta cédula ya se encuentra registrada en el sistema.')
         return cedula
+
+    def clean(self):
+        cleaned = super().clean()
+        email = cleaned.get('correo')
+        confirmacion = (cleaned.get('correo_confirmacion') or '').strip().lower()
+        if email and confirmacion and email != confirmacion:
+            self.add_error('correo_confirmacion', 'La confirmación no coincide con el correo institucional.')
+        if email:
+            nombres, apellidos = nombres_desde_correo(email)
+            if not nombres or not apellidos:
+                self.add_error(
+                    'correo',
+                    'El correo debe tener la forma nombre.apellido@unl.edu.ec. '
+                    'Si incluye una inicial (nombre.x.apellido), esa letra se omite.',
+                )
+            else:
+                cleaned['nombres'] = nombres
+                cleaned['apellidos'] = apellidos
+                self.instance.nombres = nombres
+                self.instance.apellidos = apellidos
+        facultad = cleaned.get('facultad')
+        carrera = cleaned.get('carrera')
+        if facultad and carrera and CARRERA_A_FACULTAD.get(carrera) != facultad:
+            self.add_error('carrera', 'Esta carrera no pertenece a la facultad seleccionada.')
+        return cleaned
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.username = self.cleaned_data['username']
-        user.correo = self.cleaned_data['username']
         user.nombres = self.cleaned_data['nombres']
         user.apellidos = self.cleaned_data['apellidos']
         user.cedula = self.cleaned_data['cedula']
-        
-        user.tipo_licencia_temp = self.cleaned_data.get('tipo_licencia', '')
-        
-        user.activo = False  
+        user.facultad = self.cleaned_data['facultad']
+        user.carrera = self.cleaned_data['carrera']
+        user.tipo_licencia = self.cleaned_data.get('tipo_licencia') or ''
+        user.correo_verificado = False
+        user.activo = False
         if commit:
             user.save()
         return user

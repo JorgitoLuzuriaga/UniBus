@@ -8,8 +8,10 @@ from .models import (
     Estudiante,
     Vehiculo,
     Reserva,
-    Conductor,  # <--- Importamos Conductor
-    Universidad  # <--- Importamos Universidad
+    Conductor,
+    Universidad,
+    Facultad,
+    Carrera,
 )
 
 
@@ -32,9 +34,12 @@ class CuentaCreationForm(forms.ModelForm):
 # --- CONFIGURACIÓN CUENTA ---
 @admin.register(Cuenta)
 class CuentaAdmin(admin.ModelAdmin):
-    list_display = ('correo', 'nombres', 'apellidos', 'rol_asignado', 'activo')
-    list_filter = ('rol_asignado', 'activo')
-    fields = ('correo', 'nombres', 'apellidos', 'cedula', 'rol_asignado', 'activo', 'is_staff', 'is_superuser')
+    list_display = ('correo', 'nombres', 'apellidos', 'facultad', 'carrera', 'rol_asignado', 'correo_verificado', 'activo')
+    list_filter = ('rol_asignado', 'activo', 'correo_verificado', 'facultad')
+    fields = (
+        'correo', 'nombres', 'apellidos', 'cedula', 'facultad', 'carrera',
+        'tipo_licencia', 'correo_verificado', 'rol_asignado', 'activo', 'is_staff', 'is_superuser',
+    )
 
     def save_model(self, request, obj, form, change):
         # Primero guardamos el estado de la cuenta
@@ -42,9 +47,9 @@ class CuentaAdmin(admin.ModelAdmin):
 
         # Si el administrador aprueba/activa la cuenta, gestionamos el rol estrictamente
         if obj.activo:
-            facultad_seleccionada = form.cleaned_data.get('facultad', 'RNR')
-            carrera_seleccionada = form.cleaned_data.get('carrera', 'COMPUTACION')
-            licencia_ingresada = form.cleaned_data.get('tipo_licencia', 'Tipo E')
+            facultad_seleccionada = obj.facultad or Facultad.FEIRNNR
+            carrera_seleccionada = obj.carrera or Carrera.COMPUTACION
+            licencia_ingresada = (obj.tipo_licencia or '').upper().replace('TIPO', '').strip() or 'C'
 
             # --- CASO 1: SE ASIGNÓ ROL ESTUDIANTE ---
             if obj.rol_asignado == Cuenta.RolesDisponibles.ESTUDIANTE:

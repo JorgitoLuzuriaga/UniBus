@@ -1,0 +1,23 @@
+# Entornos virtuales
+venv/
+**/venv/
+
+# Caché y compilados de Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Migraciones autogeneradas de Django
+**/migrations/
+
+# Archivos estáticos externos o multimedia pesados (opcional)
+**/static/vendor/
+*.min.js
+*.min.css
+
+# Base de datos, entorno y configuración del editor
+*.sqlite3
+.env
+.idea/
+render.yaml
+README.md

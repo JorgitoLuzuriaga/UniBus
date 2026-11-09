@@ -17,12 +17,14 @@ from django.template.loader import render_to_string
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import get_user_model
-from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
 from .forms import LoginConCaptchaForm
 from .models import Reserva, Vehiculo, EstadoReserva, Conductor, Asistencia, EstadoAsistencia, Cuenta, EstadoOperativo, \
-    Notificacion, InformeViaje
+    Notificacion, InformeViaje, IntentoRegistro
 from .forms import ReservaForm, VehiculoForm, GestionReservaForm, UnlAuthenticationForm, PerfilUsuarioForm, RegistroUnlForm, \
     InformeViajeForm
+from .correos import enviar_confirmacion_registro, notificar_registro_a_admins
 
 User = get_user_model()
 
@@ -38,10 +40,17 @@ class UnlLoginView(LoginView):
 def dashboard_redirect(request):
     user = request.user
 
+    if not user.correo_verificado:
+        return render(request, 'core/error_rol.html', {
+            'mensaje': 'Aún no confirmas tu correo institucional.',
+            'detalle': 'Revisa la bandeja de entrada (y el spam) y abre el enlace de confirmación. Hasta entonces el sistema no puede validar que el correo exista.',
+        })
+
     if not user.activo:
         return render(request, 'core/error_rol.html', {
-            'mensaje': 'Tu cuenta institucional está activa, pero tu acceso se encuentra en proceso de auditoría y aprobación por el Administrador.'
-    })
+            'mensaje': 'Tu correo está confirmado. Falta que un administrador te asigne un rol.',
+            'detalle': 'El administrador ya fue avisado de tu registro. Cuando te asigne el perfil de estudiante, docente o conductor, podrás entrar a los módulos.',
+        })
     
     if hasattr(user, 'administrador_perfil'):
         return redirect('admin_dashboard')
@@ -71,37 +80,42 @@ def marcar_notificacion_leida(request, pk):
     if notificacion.link: return redirect(notificacion.link)
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
+def _ip_cliente(request):
+    reenviada = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    if reenviada:
+        return reenviada.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '') or ''
+
+
+def _bloqueo_de_registro(ip, correo):
+    desde = timezone.now() - timedelta(hours=1)
+    if ip and IntentoRegistro.objects.filter(ip=ip, creado__gte=desde).count() >= 20:
+        return 'Superaste el número de intentos de registro permitidos desde esta red (20 por hora). Espera un momento e inténtalo de nuevo.'
+    if correo and IntentoRegistro.objects.filter(correo__iexact=correo, creado__gte=desde).count() >= 5:
+        return 'Este correo superó el número de intentos de registro permitidos (5 por hora).'
+    return ''
+
+
 def registrar_usuario(request):
     if request.method == 'POST':
+        correo_intento = (request.POST.get('correo') or '').strip().lower()
+        ip = _ip_cliente(request)
+        mensaje_bloqueo = _bloqueo_de_registro(ip, correo_intento)
+        IntentoRegistro.objects.filter(creado__lt=timezone.now() - timedelta(days=1)).delete()
+        IntentoRegistro.objects.create(ip=ip or '0.0.0.0', correo=correo_intento[:254])
         form = RegistroUnlForm(request.POST)
-        if form.is_valid():
+        if mensaje_bloqueo:
+            form.add_error(None, mensaje_bloqueo)
+        elif form.is_valid():
             user = form.save()
-            
-            # Generar datos para el enlace de activación único
-            current_site = get_current_site(request)
-            subject = 'Activa tu cuenta - Gestión de Transporte UNL'
-            
-            # Cuerpo del correo HTML/Texto plano
-            context = {
-                'user': user,
-                'domain': current_site.domain,
-                'uid': urlsafe_base64_encode(force_bytes(user.pk)),
-                'token': default_token_generator.make_token(user),
-                'protocol': 'https' if request.is_secure() else 'http'
-            }
-            
-            html_message = render_to_string('registration/activacion_email.html', context)
-            
-            # Enviar el correo real
-            send_mail(
-                subject,
-                "Por favor usa un lector que soporte HTML para ver este mensaje.",
-                f"Gestión de Transporte UNL <{settings.EMAIL_HOST_USER}>",
-                [user.correo],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            return render(request, 'registration/registro_pendiente.html')
+            try:
+                enviar_confirmacion_registro(user, request)
+            except Exception:
+                user.delete()
+                form.add_error('correo', 'El correo no existe o no se pudo enviar la confirmación. Revísalo e inténtalo de nuevo.')
+            else:
+                notificar_registro_a_admins(user, request)
+                return render(request, 'registration/registro_pendiente.html')
     else:
         form = RegistroUnlForm()
     return render(request, 'registration/registro.html', {'form': form})
@@ -113,15 +127,11 @@ def activar_cuenta(request, uidb64, token):
     except (TypeError, ValueError, OverflowError, User.DoesNotExist):
         user = None
 
-    # Verificar que el usuario exista y que el token de seguridad sea válido
     if user is not None and default_token_generator.check_token(user, token):
-        user.is_active = True  # Activamos la cuenta en la base de datos
-        user.save()
-        # CORRECCIÓN CRUCIAL: Asegúrate de que tenga el "return" adelante
+        user.correo_verificado = True
+        user.save(update_fields=['correo_verificado'])
         return render(request, 'registration/activacion_exitosa.html')
-    else:
-        # CORRECCIÓN CRUCIAL: Asegúrate de que tenga el "return" adelante
-        return render(request, 'registration/activacion_fallida.html')
+    return render(request, 'registration/activacion_fallida.html')
 
 # --- PERFIL DE USUARIO ---
 class PerfilUsuarioView(LoginRequiredMixin, UpdateView):

@@ -1,7 +1,7 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.contrib.auth import views as auth_views
-from .forms import LoginConCaptchaForm, UnlPasswordResetForm
+from .forms import UnlPasswordResetForm, UnlSetPasswordForm
 from . import views
 
 urlpatterns = [
@@ -67,7 +67,8 @@ urlpatterns = [
     ), name="password_reset_done"),
 
     path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
-        template_name="registration/password_reset_confirm.html"
+        template_name="registration/password_reset_confirm.html",
+        form_class=UnlSetPasswordForm,
     ), name="password_reset_confirm"),
 
     path('reset_password_complete/', auth_views.PasswordResetCompleteView.as_view(

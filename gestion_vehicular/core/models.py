@@ -40,16 +40,87 @@ class EstadoReserva(models.TextChoices):
     FINALIZADA = 'FINALIZADA', 'Viaje Finalizado (Informe Entregado)'
 
 class Facultad(models.TextChoices):
-    RECURSOS_NO_RENOVABLES = 'RNR', 'Recursos No Renovables y Energía'
-    OTRA = 'OTRA', 'Otra Facultad'
+    FARNR = 'FARNR', 'Facultad Agropecuaria y de Recursos Naturales Renovables'
+    FEAC = 'FEAC', 'Facultad de la Educación, el Arte y la Comunicación'
+    FEIRNNR = 'FEIRNNR', 'Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables'
+    FJSA = 'FJSA', 'Facultad Jurídica, Social y Administrativa'
+    FSALUD = 'FSALUD', 'Facultad de la Salud Humana'
+    UEDL = 'UEDL', 'Unidad de Educación a Distancia y en Línea'
+    RNR = 'RNR', 'Recursos No Renovables y Energía (registro anterior)'
 
 
-class Carrera(models.TextChoices):
-    COMPUTACION = 'COMPUTACION', 'Computación'
-    INGENIERIA_CIVIL = 'INGENIERIA_CIVIL', 'Ingeniería Civil'
-    ELECTRICIDAD = 'ELECTRICIDAD', 'Electricidad'
-    MINAS = 'MINAS', 'Minas'
-    GEOLOGIA = 'GEOLOGIA', 'Geología'
+CARRERAS_POR_FACULTAD = {
+    Facultad.FARNR: [
+        ('AGRONOMIA', 'Agronomía'),
+        ('ING_AGRICOLA', 'Ingeniería Agrícola'),
+        ('ING_AMBIENTAL', 'Ingeniería Ambiental'),
+        ('ING_FORESTAL', 'Ingeniería Forestal'),
+        ('MEDICINA_VETERINARIA', 'Medicina Veterinaria'),
+    ],
+    Facultad.FEAC: [
+        ('ARTES_MUSICALES', 'Artes Musicales'),
+        ('ARTES_VISUALES', 'Artes Visuales'),
+        ('COMUNICACION', 'Comunicación'),
+        ('EDUCACION_BASICA', 'Educación Básica'),
+        ('EDUCACION_ESPECIAL', 'Educación Especial'),
+        ('EDUCACION_INICIAL', 'Educación Inicial'),
+        ('PEDAGOGIA_FISICA', 'Pedagogía de la Actividad Física'),
+        ('PEDAGOGIA_LENGUA', 'Pedagogía de la Lengua y la Literatura'),
+        ('PEDAGOGIA_CIENCIAS', 'Pedagogía de las Ciencias Experimentales'),
+        ('PEDAGOGIA_IDIOMAS', 'Pedagogía de los Idiomas'),
+        ('PSICOPEDAGOGIA', 'Psicopedagogía'),
+    ],
+    Facultad.FEIRNNR: [
+        ('ARQUITECTURA_SOSTENIBLE', 'Arquitectura Sostenible'),
+        ('COMPUTACION', 'Computación'),
+        ('ELECTRICIDAD', 'Electricidad'),
+        ('ELECTROMECANICA', 'Electromecánica'),
+        ('AUTOMOTRIZ', 'Automotriz'),
+        ('INGENIERIA_CIVIL', 'Ingeniería Civil'),
+        ('MINAS', 'Minas'),
+        ('TELECOMUNICACIONES', 'Telecomunicaciones'),
+        ('GEOLOGIA', 'Geología'),
+    ],
+    Facultad.FJSA: [
+        ('ADMIN_EMPRESAS', 'Administración de Empresas'),
+        ('ADMIN_PUBLICA', 'Administración Pública'),
+        ('CONTABILIDAD', 'Contabilidad y Auditoría'),
+        ('DERECHO', 'Derecho'),
+        ('ECONOMIA', 'Economía'),
+        ('FINANZAS', 'Finanzas'),
+        ('TRABAJO_SOCIAL', 'Trabajo Social'),
+        ('TURISMO', 'Turismo'),
+    ],
+    Facultad.FSALUD: [
+        ('ENFERMERIA', 'Enfermería'),
+        ('LABORATORIO_CLINICO', 'Laboratorio Clínico'),
+        ('MEDICINA', 'Medicina'),
+        ('ODONTOLOGIA', 'Odontología'),
+        ('PSICOLOGIA_CLINICA', 'Psicología Clínica'),
+    ],
+    Facultad.UEDL: [
+        ('ADMIN_EMPRESAS_DIST', 'Administración de Empresas (a distancia)'),
+        ('AGRONEGOCIOS_DIST', 'Agronegocios (a distancia)'),
+        ('COMUNICACION_DIST', 'Comunicación (a distancia)'),
+        ('CONTABILIDAD_DIST', 'Contabilidad y Auditoría (a distancia)'),
+        ('DERECHO_DIST', 'Derecho (a distancia)'),
+        ('EDUCACION_BASICA_DIST', 'Educación Básica (a distancia)'),
+        ('EDUCACION_INICIAL_DIST', 'Educación Inicial (a distancia)'),
+        ('PEDAGOGIA_INFO_DIST', 'Pedagogía de la Información (a distancia)'),
+    ],
+}
+
+_carreras_unicas = []
+_codigos_carrera = set()
+CARRERA_A_FACULTAD = {}
+for _facultad, _carreras in CARRERAS_POR_FACULTAD.items():
+    for _codigo, _nombre in _carreras:
+        CARRERA_A_FACULTAD[_codigo] = _facultad
+        if _codigo not in _codigos_carrera:
+            _codigos_carrera.add(_codigo)
+            _carreras_unicas.append((_codigo, _nombre))
+
+Carrera = models.TextChoices('Carrera', _carreras_unicas)
 
 
 class EstadoAsistencia(models.TextChoices):
@@ -92,6 +163,11 @@ class Cuenta(AbstractBaseUser, PermissionsMixin):
     nombres = models.CharField(max_length=100, blank=True, null=True)
     apellidos = models.CharField(max_length=100, blank=True, null=True)
     cedula = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    facultad = models.CharField(max_length=20, choices=Facultad.choices, blank=True, default='')
+    carrera = models.CharField(max_length=40, choices=Carrera.choices, blank=True, default='')
+    tipo_licencia = models.CharField(max_length=5, blank=True, default='')
+    # Las cuentas ya existentes quedan como verificadas. El registro nuevo lo pone en False.
+    correo_verificado = models.BooleanField(default=True)
     
     # Selector de Rol para el Administrador
     class RolesDisponibles(models.TextChoices):
@@ -255,3 +331,15 @@ class Asistencia(models.Model):
 
     class Meta:
         unique_together = ('reserva', 'estudiante')
+
+
+class IntentoRegistro(models.Model):
+    ip = models.CharField(max_length=45)
+    correo = models.EmailField(blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['ip', 'creado']),
+            models.Index(fields=['correo', 'creado']),
+        ]
