@@ -14,7 +14,7 @@
             <div class="card shadow-lg border-0 rounded-4">
                 <div class="card-body p-5">
                     
-                    <!-- ALERTA DE ERRORES CORREGIDA (Muestra cualquier fallo de validación) -->
+                    <!-- ALERTA DE ERRORES CORREGIDA -->
                     {% if form.errors or form.non_field_errors %}
                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
                         <i class="bi bi-exclamation-circle-fill"></i> <strong>Verifica los siguientes campos:</strong>
@@ -35,7 +35,7 @@
                     <form method="post">
                         {% csrf_token %}
                         
-                        <!-- 1. Campo de Correo (Cambiado a form.username) -->
+                        <!-- 1. Campo de Correo -->
                         <div class="mb-3">
                             <label class="form-label fw-bold text-secondary">Correo Institucional</label>
                             <div class="input-group">
@@ -78,14 +78,15 @@
                             </div>
                         </div>
 
+                        <!-- Tipo de Licencia -->
                         <div class="mb-3">
-    <label class="form-label fw-bold text-secondary">Tipo de Licencia</label>
-    <div class="input-group">
-        <span class="input-group-text bg-light border-end-0"><i class="bi bi-card-checklist"></i></span>
-        {{ form.tipo_licencia }}
-    </div>
-    <div class="form-text text-muted small mt-1">Opcional: Llenar únicamente si está aplicando para el rol de Conductor Institucional.</div>
-</div>
+                            <label class="form-label fw-bold text-secondary">Tipo de Licencia</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-card-checklist"></i></span>
+                                {{ form.tipo_licencia }}
+                            </div>
+                            <div class="form-text text-muted small mt-1">Opcional: Llenar únicamente si está aplicando para el rol de Conductor Institucional.</div>
+                        </div>
 
                         <!-- 5. Campos de Contraseña -->
                         <div class="mb-3">
@@ -134,28 +135,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const nombresInput = document.getElementById('id_nombres');
     const apellidosInput = document.getElementById('id_apellidos');
 
-    if (correoInput) {
+    if (correoInput && nombresInput && apellidosInput) {
         correoInput.addEventListener('input', function() {
             const correo = this.value.trim().toLowerCase();
             
-            // Verificamos si contiene el formato básico nombre.apellido antes de separar
             if (correo.includes('@unl.edu.ec')) {
                 const parteUsuario = correo.split('@')[0];
                 const partes = parteUsuario.split('.');
 
                 if (partes.length >= 2) {
-                    // Capitalizar la primera letra de una palabra (ej: jorge -> Jorge)
                     const capitalizar = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
-                    // El primer fragmento siempre es el nombre
                     let nombreSugerido = capitalizar(partes[0]);
                     let apellidoSugerido = '';
 
-                    // Si tiene estructura nombre.apellido o nombre.inicial.apellido
                     if (partes.length === 2) {
                         apellidoSugerido = capitalizar(partes[1]);
                     } else if (partes.length >= 3) {
-                        // Si viene con inicial (ej: jorge.l.luzuriaga), ignoramos la inicial de un caracter
+                        // Si el segundo fragmento es una inicial de 1 letra (ej: jorge.l.luzuriaga)
                         if (partes[1].length === 1) {
                             apellidoSugerido = capitalizar(partes[2]);
                         } else {
@@ -163,12 +160,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
-                    // Insertar los valores automáticamente en las cajas de texto
                     nombresInput.value = nombreSugerido;
                     apellidosInput.value = apellidoSugerido;
                 }
             } else {
-                // Si borran el correo o no es de la UNL, limpiamos los campos
                 nombresInput.value = '';
                 apellidosInput.value = '';
             }
