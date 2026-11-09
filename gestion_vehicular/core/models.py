@@ -164,7 +164,7 @@ class Cuenta(AbstractBaseUser, PermissionsMixin):
     apellidos = models.CharField(max_length=100, blank=True, null=True)
     cedula = models.CharField(max_length=20, unique=True, blank=True, null=True)
     facultad = models.CharField(max_length=20, choices=Facultad.choices, blank=True, default='')
-    carrera = models.CharField(max_length=50, choices=Carrera.choices, blank=True, default='')
+    carrera = models.CharField(max_length=80, choices=Carrera.choices, blank=True, default='')
     tipo_licencia = models.CharField(max_length=5, blank=True, default='')
     # Las cuentas ya existentes quedan como verificadas. El registro nuevo lo pone en False.
     correo_verificado = models.BooleanField(default=True)

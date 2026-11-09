@@ -159,7 +159,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Additional native source directories where your uncompiled local logo images live
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    BASE_DIR / 'core' / 'static',
 ]
 
 # Optimizes asset storage through WhiteNoise compression pipelines

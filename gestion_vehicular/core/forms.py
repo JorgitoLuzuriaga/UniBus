@@ -284,13 +284,26 @@ class RegistroUnlForm(UserCreationForm):
     error_messages = {
         'password_mismatch': 'Las contraseñas no coinciden.',
     }
+    
+    # Asegura que los campos aparezcan en el orden correcto en el HTML
+    field_order = [
+        'correo', 
+        'correo_confirmacion', 
+        'nombres', 
+        'apellidos', 
+        'cedula', 
+        'facultad', 
+        'carrera', 
+        'tipo_licencia'
+    ]
+
     correo = forms.EmailField(
         required=True,
         label='Correo institucional',
         widget=forms.EmailInput(attrs={
             'class': 'form-control',
             'placeholder': 'nombre.apellido@unl.edu.ec',
-            'autocomplete': 'username',
+            'autocomplete': 'email',
         }),
     )
     correo_confirmacion = forms.EmailField(
@@ -347,11 +360,23 @@ class RegistroUnlForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ['correo']
+        # Se listan explícitamente todos tus campos para que Django permita renderizarlos
+        fields = [
+            'correo', 
+            'correo_confirmacion', 
+            'nombres', 
+            'apellidos', 
+            'cedula', 
+            'facultad', 
+            'carrera', 
+            'tipo_licencia'
+        ]
 
     def __init__(self, *args, verificar_correo=True, **kwargs):
         self.verificar_correo = verificar_correo
         super().__init__(*args, **kwargs)
+        
+        # Estilos aplicados a los campos heredados de contraseñas de UserCreationForm
         for nombre in ('password1', 'password2'):
             self.fields[nombre].widget.attrs.update({'class': 'form-control'})
         self.fields['password1'].label = 'Contraseña'
