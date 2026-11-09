@@ -215,7 +215,7 @@ class Cuenta(AbstractBaseUser, PermissionsMixin):
 class Persona(models.Model):
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
-    cedula = models.CharField(max_length=20, unique=True)
+    cedula = models.CharField(max_length=50, unique=True)
     cuenta = models.OneToOneField(Cuenta, on_delete=models.CASCADE, related_name='%(class)s_perfil')
 
     class Meta:
