@@ -38,7 +38,17 @@ def _enviar(asunto, cuerpo_html, destinatarios):
         raise
 
 
+def enviar_codigo_verificacion(correo, nombre, codigo):
+    html = render_to_string('registration/codigo_verificacion_email.html', {
+        'nombre': nombre or correo,
+        'codigo': codigo,
+        'minutos': 15,
+    })
+    _enviar('Código de verificación - Gestión de Transporte UNL', html, [correo])
+
+
 def enviar_confirmacion_registro(user, request):
+    """Compatibilidad con enlaces de activación ya enviados."""
     protocolo = 'https' if request.is_secure() else 'http'
     contexto = {
         'user': user,

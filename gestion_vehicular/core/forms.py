@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
@@ -173,7 +174,9 @@ class RegistroUnlForm(forms.ModelForm):
         if self.verificar_correo:
             existe = correo_institucional_existe(email)
             if existe is False:
-                raise forms.ValidationError('El correo no existe o no responde en el servidor de la UNL.')
+                raise forms.ValidationError(
+                    'Esa cuenta no existe en el correo de la UNL. Revisa que el correo institucional esté bien escrito.'
+                )
         return email
 
     def clean_cedula(self):
@@ -257,11 +260,46 @@ class RegistroUnlForm(forms.ModelForm):
         user.facultad = self.cleaned_data['facultad']
         user.carrera = self.cleaned_data['carrera']
         user.tipo_licencia = self.cleaned_data.get('tipo_licencia') or ''
-        user.correo_verificado = False
+        user.correo_verificado = True
         user.activo = False
+        user.rol_asignado = User.RolesDisponibles.NINGUNO
         if commit:
             user.save()
         return user
+
+    def datos_para_confirmar(self):
+        """Datos listos para crear la cuenta solo después de validar el código."""
+        return {
+            'correo': self.cleaned_data['correo'],
+            'nombres': self.cleaned_data['nombres'],
+            'apellidos': self.cleaned_data['apellidos'],
+            'cedula': self.cleaned_data['cedula'],
+            'facultad': self.cleaned_data['facultad'],
+            'carrera': self.cleaned_data['carrera'],
+            'tipo_licencia': self.cleaned_data.get('tipo_licencia') or '',
+            'password': make_password(self.cleaned_data['password1']),
+        }
+
+
+class CodigoRegistroForm(forms.Form):
+    codigo = forms.CharField(
+        label='Código de verificación',
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg text-center fw-bold',
+            'inputmode': 'numeric',
+            'autocomplete': 'one-time-code',
+            'placeholder': '000000',
+            'maxlength': '6',
+        }),
+    )
+
+    def clean_codigo(self):
+        codigo = (self.cleaned_data.get('codigo') or '').strip()
+        if not codigo.isdigit():
+            raise forms.ValidationError('El código debe tener 6 números.')
+        return codigo
 
 
 # --- 3. RECUPERACIÓN DE CONTRASEÑA ---

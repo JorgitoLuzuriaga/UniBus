@@ -41,10 +41,18 @@ class CuentaAdmin(admin.ModelAdmin):
     )
 
     def save_model(self, request, obj, form, change):
-        # Primero guardamos el estado de la cuenta
+        roles_operativos = {
+            Cuenta.RolesDisponibles.ESTUDIANTE,
+            Cuenta.RolesDisponibles.DOCENTE,
+            Cuenta.RolesDisponibles.CONDUCTOR,
+        }
+        if obj.rol_asignado in roles_operativos:
+            obj.activo = True
+        elif obj.rol_asignado == Cuenta.RolesDisponibles.NINGUNO and not obj.is_superuser and not obj.is_staff:
+            obj.activo = False
+
         super().save_model(request, obj, form, change)
 
-        # Si el administrador aprueba/activa la cuenta, gestionamos el rol estrictamente
         if obj.activo:
             facultad_seleccionada = obj.facultad or Facultad.FEIRNNR
             carrera_seleccionada = obj.carrera or Carrera.COMPUTACION

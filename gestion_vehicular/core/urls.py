@@ -13,6 +13,10 @@ urlpatterns = [
 
     # REGISTRO DE USUARIO
     path('registrarse/', views.registrar_usuario, name='registrar_usuario'),
+    path('registrarse/confirmar/', views.confirmar_codigo_registro, name='confirmar_codigo_registro'),
+    path('registrarse/reenviar/', views.reenviar_codigo_registro, name='reenviar_codigo_registro'),
+    path('registrarse/en-espera/', views.registro_en_espera, name='registro_en_espera'),
+    path('verificar-correo/', views.verificar_correo_cuenta, name='verificar_correo_cuenta'),
     path('activar/<uidb64>/<token>/', views.activar_cuenta, name='activar_cuenta'),
 
     # PERFIL Y NOTIFICACIONES

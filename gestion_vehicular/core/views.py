@@ -1,5 +1,9 @@
 import logging
+import secrets
+import time
 
+from django.contrib.auth.hashers import check_password, make_password
+from django.db import IntegrityError, transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView, DeleteView
@@ -23,11 +27,18 @@ from django.utils import timezone
 from datetime import timedelta
 from .models import Reserva, Vehiculo, EstadoReserva, Conductor, Asistencia, EstadoAsistencia, Cuenta, EstadoOperativo, \
     Notificacion, InformeViaje, IntentoRegistro
-from .forms import ReservaForm, VehiculoForm, GestionReservaForm, UnlAuthenticationForm, PerfilUsuarioForm, RegistroUnlForm, InformeViajeForm
-from .correos import enviar_confirmacion_registro, notificar_registro_a_admins
+from .forms import (
+    ReservaForm, VehiculoForm, GestionReservaForm, UnlAuthenticationForm, PerfilUsuarioForm,
+    RegistroUnlForm, InformeViajeForm, CodigoRegistroForm,
+)
+from .correos import enviar_codigo_verificacion, notificar_registro_a_admins
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+SOLICITUD_SESION = 'solicitud_registro'
+CODIGO_CUENTA_SESION = 'codigo_cuenta'
+CODIGO_MINUTOS = 15
+MAX_INTENTOS_CODIGO = 5
 
 # --- AUTENTICACIÓN ---
 class UnlLoginView(LoginView):
@@ -45,16 +56,22 @@ class UnlLoginView(LoginView):
 def dashboard_redirect(request):
     user = request.user
 
-    if not user.correo_verificado:
+    es_admin = user.is_superuser or user.is_staff or hasattr(user, 'administrador_perfil')
+
+    if not user.correo_verificado and not es_admin:
         return render(request, 'core/error_rol.html', {
-            'mensaje': 'Aún no confirmas tu correo institucional.',
-            'detalle': 'Revisa la bandeja de entrada (y el spam) y abre el enlace de confirmación. Hasta entonces el sistema no puede validar que el correo exista.',
+            'titulo': 'Confirma tu correo',
+            'mensaje': 'Esta cuenta todavía no demuestra que el correo institucional exista.',
+            'detalle': 'Pide un código de 6 números y escríbelo aquí. Si no llega, revisa el spam o corrige el correo: puede que esa cuenta no exista.',
+            'puede_verificar': True,
+            'correo': user.correo,
         })
 
-    if not user.activo:
+    if not es_admin and (not user.activo or user.rol_asignado == User.RolesDisponibles.NINGUNO):
         return render(request, 'core/error_rol.html', {
-            'mensaje': 'Tu correo está confirmado. Falta que un administrador te asigne un rol.',
-            'detalle': 'El administrador ya fue avisado de tu registro. Cuando te asigne el perfil de estudiante, docente o conductor, podrás entrar a los módulos.',
+            'titulo': 'Solicitud en espera',
+            'mensaje': 'Tu correo ya está confirmado. Falta que un administrador te asigne un rol.',
+            'detalle': 'El administrador recibió el aviso. Cuando te asigne estudiante, docente o conductor desde el panel, podrás entrar a los módulos. Mientras tanto debes esperar.',
         })
     
     if hasattr(user, 'administrador_perfil'):
@@ -94,13 +111,51 @@ def _ip_cliente(request):
 
 def _mensaje_fallo_correo(exc):
     texto = str(exc).lower()
+    if any(pista in texto for pista in (
+        '550', '551', '553', 'user unknown', 'user not found', 'does not exist',
+        'no such user', 'recipient address rejected', 'mailbox unavailable',
+        'invalid recipient', 'recipient is invalid',
+    )):
+        return 'Esa cuenta de correo no existe. El mensaje no pudo entregarse; revisa el correo institucional.'
     if 'brevo_api_key' in texto or 'falta brevo_api_key' in texto:
         return 'No se envió el correo: en Render falta la variable BREVO_API_KEY.'
     if '401' in texto or 'unauthorized' in texto or 'unauthorised' in texto:
         return 'No se envió el correo: Brevo rechazó la clave API. Revisa BREVO_API_KEY en Render.'
     if 'sender' in texto or 'not yet activated' in texto:
         return 'No se envió el correo: el remitente no está verificado en Brevo. Confírmalo en Senders, domains & dedicated IPs.'
-    return 'No se envió el correo de confirmación. En Brevo abre Transactional → Logs para ver si quedó bloqueado o en spam.'
+    return 'No se pudo enviar el código de verificación. Inténtalo de nuevo en unos minutos.'
+
+
+def _nuevo_codigo():
+    return f'{secrets.randbelow(1_000_000):06d}'
+
+
+def _guardar_solicitud(request, datos, codigo):
+    request.session[SOLICITUD_SESION] = {
+        **datos,
+        'codigo_hash': make_password(codigo),
+        'expira': time.time() + CODIGO_MINUTOS * 60,
+        'intentos': 0,
+    }
+    request.session.modified = True
+
+
+def _crear_cuenta_confirmada(datos):
+    user = User(
+        correo=datos['correo'],
+        nombres=datos['nombres'],
+        apellidos=datos['apellidos'],
+        cedula=datos['cedula'],
+        facultad=datos['facultad'],
+        carrera=datos['carrera'],
+        tipo_licencia=datos.get('tipo_licencia') or '',
+        correo_verificado=True,
+        activo=False,
+        rol_asignado=User.RolesDisponibles.NINGUNO,
+    )
+    user.password = datos['password']
+    user.save()
+    return user
 
 
 def _bloqueo_de_registro(ip, correo):
@@ -123,22 +178,132 @@ def registrar_usuario(request):
         if mensaje_bloqueo:
             form.add_error(None, mensaje_bloqueo)
         elif form.is_valid():
-            user = form.save()
+            datos = form.datos_para_confirmar()
+            codigo = _nuevo_codigo()
             try:
-                enviar_confirmacion_registro(user, request)
+                enviar_codigo_verificacion(datos['correo'], datos['nombres'], codigo)
             except Exception as exc:
-                user.delete()
-                logger.exception('No se envió la confirmación a %s', user.correo)
+                logger.exception('No se envió el código a %s', datos['correo'])
                 form.add_error('correo', _mensaje_fallo_correo(exc))
             else:
-                try:
-                    notificar_registro_a_admins(user, request)
-                except Exception:
-                    logger.exception('El registro %s quedó creado, pero falló el aviso al administrador', user.pk)
-                return render(request, 'registration/registro_pendiente.html')
+                _guardar_solicitud(request, datos, codigo)
+                return redirect('confirmar_codigo_registro')
     else:
         form = RegistroUnlForm()
     return render(request, 'registration/registro.html', {'form': form})
+
+
+def confirmar_codigo_registro(request):
+    solicitud = request.session.get(SOLICITUD_SESION)
+    if not solicitud:
+        return redirect('registrar_usuario')
+
+    form = CodigoRegistroForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        if time.time() > solicitud.get('expira', 0):
+            form.add_error('codigo', 'El código venció. Pide uno nuevo.')
+        elif solicitud.get('intentos', 0) >= MAX_INTENTOS_CODIGO:
+            form.add_error('codigo', 'Superaste los intentos. Pide un código nuevo.')
+        elif not check_password(form.cleaned_data['codigo'], solicitud.get('codigo_hash', '')):
+            solicitud['intentos'] = solicitud.get('intentos', 0) + 1
+            request.session[SOLICITUD_SESION] = solicitud
+            request.session.modified = True
+            restantes = MAX_INTENTOS_CODIGO - solicitud['intentos']
+            form.add_error('codigo', f'El código no coincide. Te quedan {max(restantes, 0)} intentos.')
+        elif User.objects.filter(correo__iexact=solicitud['correo']).exists():
+            form.add_error('codigo', 'Este correo ya se registró. Inicia sesión.')
+        else:
+            try:
+                with transaction.atomic():
+                    user = _crear_cuenta_confirmada(solicitud)
+            except IntegrityError:
+                form.add_error('codigo', 'Ese correo o esa cédula ya están registrados.')
+            else:
+                request.session.pop(SOLICITUD_SESION, None)
+                try:
+                    notificar_registro_a_admins(user, request)
+                except Exception:
+                    logger.exception('La cuenta %s quedó creada, pero falló el aviso al administrador', user.pk)
+                return redirect('registro_en_espera')
+
+    return render(request, 'registration/confirmar_codigo.html', {
+        'form': form,
+        'correo': solicitud.get('correo', ''),
+    })
+
+
+def reenviar_codigo_registro(request):
+    if request.method != 'POST':
+        return redirect('confirmar_codigo_registro')
+    solicitud = request.session.get(SOLICITUD_SESION)
+    if not solicitud:
+        return redirect('registrar_usuario')
+    codigo = _nuevo_codigo()
+    try:
+        enviar_codigo_verificacion(solicitud['correo'], solicitud.get('nombres') or solicitud['correo'], codigo)
+    except Exception as exc:
+        logger.exception('No se reenvió el código a %s', solicitud.get('correo'))
+        messages.error(request, _mensaje_fallo_correo(exc))
+    else:
+        solicitud['codigo_hash'] = make_password(codigo)
+        solicitud['expira'] = time.time() + CODIGO_MINUTOS * 60
+        solicitud['intentos'] = 0
+        request.session[SOLICITUD_SESION] = solicitud
+        request.session.modified = True
+        messages.success(request, 'Enviamos un código nuevo. El anterior ya no sirve.')
+    return redirect('confirmar_codigo_registro')
+
+
+def registro_en_espera(request):
+    return render(request, 'registration/registro_pendiente.html')
+
+
+@login_required
+def verificar_correo_cuenta(request):
+    user = request.user
+    if user.correo_verificado:
+        return redirect('dashboard_redirect')
+    if request.method != 'POST':
+        return redirect('dashboard_redirect')
+
+    accion = request.POST.get('accion')
+    if accion == 'enviar':
+        codigo = _nuevo_codigo()
+        try:
+            enviar_codigo_verificacion(user.correo, user.nombres or user.correo, codigo)
+        except Exception as exc:
+            logger.exception('No se envió el código de la cuenta %s', user.pk)
+            messages.error(request, _mensaje_fallo_correo(exc))
+        else:
+            request.session[CODIGO_CUENTA_SESION] = {
+                'uid': user.pk,
+                'hash': make_password(codigo),
+                'expira': time.time() + CODIGO_MINUTOS * 60,
+                'intentos': 0,
+            }
+            messages.success(request, f'Enviamos un código a {user.correo}.')
+    elif accion == 'confirmar':
+        datos = request.session.get(CODIGO_CUENTA_SESION) or {}
+        codigo = (request.POST.get('codigo') or '').strip()
+        if datos.get('uid') != user.pk:
+            messages.error(request, 'Primero pide el código.')
+        elif time.time() > datos.get('expira', 0) or datos.get('intentos', 0) >= MAX_INTENTOS_CODIGO:
+            messages.error(request, 'Ese código venció o agotó los intentos. Pide otro.')
+        elif not codigo.isdigit() or not check_password(codigo, datos.get('hash', '')):
+            datos['intentos'] = datos.get('intentos', 0) + 1
+            request.session[CODIGO_CUENTA_SESION] = datos
+            request.session.modified = True
+            messages.error(request, 'El código no coincide.')
+        else:
+            user.correo_verificado = True
+            user.save(update_fields=['correo_verificado'])
+            request.session.pop(CODIGO_CUENTA_SESION, None)
+            try:
+                notificar_registro_a_admins(user, request)
+            except Exception:
+                logger.exception('No se avisó al administrador de la cuenta %s', user.pk)
+            messages.success(request, 'Correo confirmado. Ahora debes esperar a que un administrador te asigne el rol.')
+    return redirect('dashboard_redirect')
 
 def activar_cuenta(request, uidb64, token):
     try:
