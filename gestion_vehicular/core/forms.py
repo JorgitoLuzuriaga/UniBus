@@ -299,7 +299,7 @@ class RegistroUnlForm(UserCreationForm):
         'password_mismatch': 'Las contraseñas no coinciden.',
     }
     
-    # Asegura que los campos aparezcan en el orden correcto en el HTML
+    # Restablecemos el orden usando el campo correcto del modelo: 'correo'
     field_order = [
         'correo', 
         'correo_confirmacion', 
@@ -311,6 +311,7 @@ class RegistroUnlForm(UserCreationForm):
         'tipo_licencia'
     ]
 
+    # Declaramos el campo 'correo' de forma explícita
     correo = forms.EmailField(
         required=True,
         label='Correo institucional',
@@ -351,11 +352,11 @@ class RegistroUnlForm(UserCreationForm):
         }),
     )
     facultad = forms.ChoiceField(
-        choices=[facultad for facultad in Facultad.choices if facultad[0] != Facultad.RNR],
+        choices=[facultad for facultad in Facultad.choices if facultad != Facultad.RNR],
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
     carrera = forms.ChoiceField(
-        choices=CARRERAS_UNIFICADAS, # 👈 Cambiado aquí
+        choices=CARRERAS_UNIFICADAS, # Usa tu lista unificada de opciones limpias
         widget=CarreraPorFacultadSelect(attrs={'class': 'form-select'}),
     )
     tipo_licencia = forms.ChoiceField(
@@ -373,10 +374,10 @@ class RegistroUnlForm(UserCreationForm):
     )
 
     class Meta:
-        model = User
-        # Se listan explícitamente todos tus campos para que Django permita renderizarlos
+        # Enlazamos el formulario al modelo personalizado de tu proyecto (Cuenta)
+        model = CuentaUsuario
         fields = [
-            'username', 
+            'correo', 
             'correo_confirmacion', 
             'nombres', 
             'apellidos', 
@@ -390,7 +391,11 @@ class RegistroUnlForm(UserCreationForm):
         self.verificar_correo = verificar_correo
         super().__init__(*args, **kwargs)
         
-        # Estilos aplicados a los campos heredados de contraseñas de UserCreationForm
+        # Si UserCreationForm creó automáticamente un campo username por herencia, lo removemos
+        if 'username' in self.fields:
+            del self.fields['username']
+            
+        # Estilos aplicados a las contraseñas heredadas
         for nombre in ('password1', 'password2'):
             self.fields[nombre].widget.attrs.update({'class': 'form-control'})
         self.fields['password1'].label = 'Contraseña'
@@ -402,7 +407,7 @@ class RegistroUnlForm(UserCreationForm):
         email = (self.cleaned_data.get('correo') or '').strip().lower()
         if not email.endswith('@unl.edu.ec'):
             raise forms.ValidationError('Solo se permiten correos institucionales @unl.edu.ec.')
-        if User.objects.filter(correo__iexact=email).exists():
+        if CuentaUsuario.objects.filter(correo__iexact=email).exists():
             raise forms.ValidationError('Este correo ya se encuentra registrado.')
         existe = correo_institucional_existe(email)
         if existe is False:
@@ -425,8 +430,10 @@ class RegistroUnlForm(UserCreationForm):
         cleaned = super().clean()
         email = cleaned.get('correo')
         confirmacion = (cleaned.get('correo_confirmacion') or '').strip().lower()
+        
         if email and confirmacion and email != confirmacion:
             self.add_error('correo_confirmacion', 'La confirmación no coincide con el correo institucional.')
+        
         if email:
             nombres, apellidos = nombres_desde_correo(email)
             if not nombres or not apellidos:
@@ -440,6 +447,7 @@ class RegistroUnlForm(UserCreationForm):
                 cleaned['apellidos'] = apellidos
                 self.instance.nombres = nombres
                 self.instance.apellidos = apellidos
+                
         facultad = cleaned.get('facultad')
         carrera = cleaned.get('carrera')
         if facultad and carrera and CARRERA_A_FACULTAD.get(carrera) != facultad:
@@ -448,6 +456,7 @@ class RegistroUnlForm(UserCreationForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
+        user.correo = self.cleaned_data['correo']
         user.nombres = self.cleaned_data['nombres']
         user.apellidos = self.cleaned_data['apellidos']
         user.cedula = self.cleaned_data['cedula']
