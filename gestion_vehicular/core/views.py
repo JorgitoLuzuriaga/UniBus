@@ -29,14 +29,15 @@ from .models import Reserva, Vehiculo, EstadoReserva, Conductor, Asistencia, Est
     Notificacion, InformeViaje, IntentoRegistro
 from .forms import (
     ReservaForm, VehiculoForm, GestionReservaForm, UnlAuthenticationForm, PerfilUsuarioForm,
-    RegistroUnlForm, InformeViajeForm, CodigoRegistroForm,
+    RegistroUnlForm, InformeViajeForm, CodigoRegistroForm, UnlPasswordResetForm, RecuperarContrasenaForm,
 )
-from .correos import enviar_codigo_verificacion, notificar_registro_a_admins
+from .correos import enviar_codigo_verificacion, enviar_codigo_recuperacion, notificar_registro_a_admins
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 SOLICITUD_SESION = 'solicitud_registro'
 CODIGO_CUENTA_SESION = 'codigo_cuenta'
+RECUPERACION_SESION = 'recuperar_clave'
 CODIGO_MINUTOS = 15
 MAX_INTENTOS_CODIGO = 5
 
@@ -256,6 +257,91 @@ def reenviar_codigo_registro(request):
 
 def registro_en_espera(request):
     return render(request, 'registration/registro_pendiente.html')
+
+
+def solicitar_recuperacion(request):
+    form = UnlPasswordResetForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        correo = form.cleaned_data['email']
+        usuarios = list(form.get_users(correo))
+        user = usuarios[0] if usuarios else None
+        codigo = _nuevo_codigo()
+        if user is not None:
+            try:
+                enviar_codigo_recuperacion(user.correo, user.nombres or user.correo, codigo)
+            except Exception as exc:
+                logger.exception('No se envió el código de recuperación a %s', user.correo)
+                form.add_error('email', _mensaje_fallo_correo(exc))
+                return render(request, 'registration/password_reset_form.html', {'form': form})
+            codigo_hash = make_password(codigo)
+            uid = user.pk
+        else:
+            codigo_hash = make_password(_nuevo_codigo())
+            uid = None
+        request.session[RECUPERACION_SESION] = {
+            'uid': uid,
+            'correo': correo,
+            'codigo_hash': codigo_hash,
+            'expira': time.time() + CODIGO_MINUTOS * 60,
+            'intentos': 0,
+        }
+        request.session.modified = True
+        return redirect('recuperar_con_codigo')
+    return render(request, 'registration/password_reset_form.html', {'form': form})
+
+
+def recuperar_con_codigo(request):
+    datos = request.session.get(RECUPERACION_SESION)
+    if not datos:
+        return redirect('password_reset')
+
+    user = User.objects.filter(pk=datos.get('uid')).first() if datos.get('uid') else None
+    usuario_form = user or User(correo=datos.get('correo') or '')
+    form = RecuperarContrasenaForm(usuario_form, request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        if time.time() > datos.get('expira', 0) or datos.get('intentos', 0) >= MAX_INTENTOS_CODIGO:
+            form.add_error('codigo', 'El código venció o agotó los intentos. Pide uno nuevo.')
+        elif user is None or not check_password(form.cleaned_data['codigo'], datos.get('codigo_hash', '')):
+            datos['intentos'] = datos.get('intentos', 0) + 1
+            request.session[RECUPERACION_SESION] = datos
+            request.session.modified = True
+            restantes = MAX_INTENTOS_CODIGO - datos['intentos']
+            form.add_error('codigo', f'El código no coincide. Te quedan {max(restantes, 0)} intentos.')
+        else:
+            form.save()
+            request.session.pop(RECUPERACION_SESION, None)
+            return redirect('password_reset_complete')
+
+    return render(request, 'registration/password_reset_codigo.html', {
+        'form': form,
+        'correo': datos.get('correo', ''),
+    })
+
+
+def reenviar_codigo_recuperacion(request):
+    if request.method != 'POST':
+        return redirect('recuperar_con_codigo')
+    datos = request.session.get(RECUPERACION_SESION)
+    if not datos:
+        return redirect('password_reset')
+    user = User.objects.filter(pk=datos.get('uid')).first() if datos.get('uid') else None
+    codigo = _nuevo_codigo()
+    if user is not None:
+        try:
+            enviar_codigo_recuperacion(user.correo, user.nombres or user.correo, codigo)
+        except Exception as exc:
+            logger.exception('No se reenvió el código de recuperación a %s', user.correo)
+            messages.error(request, _mensaje_fallo_correo(exc))
+            return redirect('recuperar_con_codigo')
+        datos['codigo_hash'] = make_password(codigo)
+    else:
+        datos['codigo_hash'] = make_password(_nuevo_codigo())
+    datos['expira'] = time.time() + CODIGO_MINUTOS * 60
+    datos['intentos'] = 0
+    request.session[RECUPERACION_SESION] = datos
+    request.session.modified = True
+    messages.success(request, 'Si la cuenta existe, enviamos un código nuevo. El anterior ya no sirve.')
+    return redirect('recuperar_con_codigo')
 
 
 @login_required

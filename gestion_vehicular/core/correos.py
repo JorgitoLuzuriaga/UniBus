@@ -38,6 +38,15 @@ def _enviar(asunto, cuerpo_html, destinatarios):
         raise
 
 
+def enviar_codigo_recuperacion(correo, nombre, codigo):
+    html = render_to_string('registration/codigo_recuperacion_email.html', {
+        'nombre': nombre or correo,
+        'codigo': codigo,
+        'minutos': 15,
+    })
+    _enviar('Código para restablecer tu contraseña - Gestión de Transporte UNL', html, [correo])
+
+
 def enviar_codigo_verificacion(correo, nombre, codigo):
     html = render_to_string('registration/codigo_verificacion_email.html', {
         'nombre': nombre or correo,

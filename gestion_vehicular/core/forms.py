@@ -371,6 +371,28 @@ class UnlSetPasswordForm(SetPasswordForm):
             'class': 'form-control',
             'placeholder': 'Repite la nueva contraseña',
         })
+
+
+class RecuperarContrasenaForm(UnlSetPasswordForm):
+    field_order = ['codigo', 'new_password1', 'new_password2']
+    codigo = forms.CharField(
+        label='Código del correo',
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg text-center fw-bold',
+            'inputmode': 'numeric',
+            'autocomplete': 'one-time-code',
+            'placeholder': '000000',
+            'maxlength': '6',
+        }),
+    )
+
+    def clean_codigo(self):
+        codigo = (self.cleaned_data.get('codigo') or '').strip()
+        if not codigo.isdigit():
+            raise forms.ValidationError('El código debe tener 6 números.')
+        return codigo
 # --- 4. SOLICITUD DE RESERVA (DOCENTE) ---
 class ReservaForm(forms.ModelForm):
     carrera_filtro = forms.ChoiceField(

@@ -1,7 +1,7 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.contrib.auth import views as auth_views
-from .forms import UnlPasswordResetForm, UnlSetPasswordForm
+from .forms import UnlSetPasswordForm
 from . import views
 
 urlpatterns = [
@@ -57,18 +57,11 @@ urlpatterns = [
     # ADMIN - USUARIOS
     path('gestion/usuarios/', views.AdminUsuariosListView.as_view(), name='admin_usuarios'),
 
-    # RESET PASSWORD (USANDO FORMULARIO PERSONALIZADO)
-    path('reset_password/', auth_views.PasswordResetView.as_view(
-        template_name="registration/password_reset_form.html",
-        form_class=UnlPasswordResetForm,
-        email_template_name='registration/password_reset_email.html',         # Texto plano alternativo
-        html_email_template_name='registration/password_reset_email.html',    # Formato HTML (Español)
-        subject_template_name='registration/password_reset_subject.txt'       # Asunto personalizado
-    ), name="password_reset"),
+    path('reset_password/', views.solicitar_recuperacion, name='password_reset'),
+    path('reset_password/codigo/', views.recuperar_con_codigo, name='recuperar_con_codigo'),
+    path('reset_password/reenviar/', views.reenviar_codigo_recuperacion, name='reenviar_codigo_recuperacion'),
 
-    path('reset_password_sent/', auth_views.PasswordResetDoneView.as_view(
-        template_name="registration/password_reset_done.html"
-    ), name="password_reset_done"),
+    path('reset_password_sent/', views.recuperar_con_codigo, name='password_reset_done'),
 
     path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
         template_name="registration/password_reset_confirm.html",
