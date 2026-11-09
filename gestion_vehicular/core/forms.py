@@ -94,12 +94,22 @@ class RegistroUnlForm(forms.ModelForm):
     nombres = forms.CharField(
         required=False,
         max_length=100,
-        widget=forms.TextInput(attrs={'class': 'form-control bg-light', 'readonly': 'readonly'}),
+        label='Nombres',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Se completa con tu correo',
+            'autocomplete': 'given-name',
+        }),
     )
     apellidos = forms.CharField(
         required=False,
         max_length=100,
-        widget=forms.TextInput(attrs={'class': 'form-control bg-light', 'readonly': 'readonly'}),
+        label='Apellidos',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Se completa con tu correo',
+            'autocomplete': 'family-name',
+        }),
     )
     cedula = forms.CharField(
         required=True,
@@ -182,15 +192,27 @@ class RegistroUnlForm(forms.ModelForm):
         cleaned = super().clean()
         email = cleaned.get('correo')
         
-        if email:
-            nombres, apellidos = nombres_desde_correo(email)
-            if not nombres or not apellidos:
-                self.add_error('correo', 'El correo debe tener la forma nombre.apellido@unl.edu.ec.')
-            else:
-                cleaned['nombres'] = nombres
-                cleaned['apellidos'] = apellidos
-                self.instance.nombres = nombres
-                self.instance.apellidos = apellidos
+        nombres = (cleaned.get('nombres') or '').strip()
+        apellidos = (cleaned.get('apellidos') or '').strip()
+        if email and (not nombres or not apellidos):
+            sugeridos_nombres, sugeridos_apellidos = nombres_desde_correo(email)
+            nombres = nombres or sugeridos_nombres
+            apellidos = apellidos or sugeridos_apellidos
+            if hasattr(self.data, 'copy'):
+                data = self.data.copy()
+                data['nombres'] = nombres
+                data['apellidos'] = apellidos
+                self.data = data
+
+        if not nombres:
+            self.add_error('nombres', 'Ingresa tus nombres. Si el correo no los trae, escríbelos aquí.')
+        if not apellidos:
+            self.add_error('apellidos', 'Ingresa tus apellidos. Si el correo no los trae, escríbelos aquí.')
+
+        cleaned['nombres'] = nombres
+        cleaned['apellidos'] = apellidos
+        self.instance.nombres = nombres
+        self.instance.apellidos = apellidos
                 
         facultad = cleaned.get('facultad')
         carrera = cleaned.get('carrera')

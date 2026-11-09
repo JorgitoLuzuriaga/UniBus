@@ -120,7 +120,12 @@ for _facultad, _carreras in CARRERAS_POR_FACULTAD.items():
             _codigos_carrera.add(_codigo)
             _carreras_unicas.append((_codigo, _nombre))
 
-Carrera = models.TextChoices('Carrera', _carreras_unicas)
+# El valor guardado tiene que ser el código (COMPUTACION), no el nombre visible.
+# TextChoices('Nombre', [('CODIGO', 'Nombre')]) interpreta el nombre como valor.
+Carrera = models.TextChoices(
+    'Carrera',
+    {codigo: (codigo, nombre) for codigo, nombre in _carreras_unicas},
+)
 
 
 class EstadoAsistencia(models.TextChoices):

@@ -55,6 +55,9 @@
                                 <label class="form-label fw-bold text-secondary">Apellidos</label>
                                 {{ form.apellidos }}
                             </div>
+                            <div class="col-12">
+                                <div class="form-text text-muted small mb-3">Se sugieren a partir del correo (nombre.apellido). Puedes corregirlos si hace falta.</div>
+                            </div>
                         </div>
 
                         <!-- 3. Campo de Cédula -->
@@ -137,79 +140,72 @@ document.addEventListener('DOMContentLoaded', function() {
     const facultadSelect = document.getElementById('id_facultad');
     const carreraSelect = document.getElementById('id_carrera');
 
-    // Desbloquear edición manual de nombres
-    if (nombresInput) nombresInput.removeAttribute('readonly');
-    if (apellidosInput) apellidosInput.removeAttribute('readonly');
-
-    // 1. MAPA DE CARRERAS GENERADO DIRECTAMENTE DESDE MODELOS (Evita fallos de Widgets)
-    // Asocia los códigos de facultad con sus respectivas carreras
-    const mapaCarreras = {
-        'FARNR': ['AGRONOMIA', 'ING_AGRICOLA', 'ING_AMBIENTAL', 'ING_FORESTAL', 'MEDICINA_VETERINARIA'],
-        'FEAC': ['ARTES_MUSICALES', 'ARTES_VISUALES', 'COMUNICACION', 'EDUCACION_BASICA', 'EDUCACION_ESPECIAL', 'EDUCACION_INICIAL', 'PEDAGOGIA_FISICA', 'PEDAGOGIA_LENGUA', 'PEDAGOGIA_CIENCIAS', 'PEDAGOGIA_IDIOMAS', 'PSICOPEDAGOGIA'],
-        'FEIRNNR': ['ARQUITECTURA_SOSTENIBLE', 'COMPUTACION', 'ELECTRICIDAD', 'ELECTROMECANICA', 'AUTOMOTRIZ', 'INGENIERIA_CIVIL', 'MINAS', 'TELECOMUNICACIONES', 'GEOLOGIA'],
-        'FJSA': ['ADMIN_EMPRESAS', 'ADMIN_PUBLICA', 'CONTABILIDAD', 'DERECHO', 'ECONOMIA', 'FINANZAS', 'TRABAJO_SOCIAL', 'TURISMO'],
-        'FSALUD': ['ENFERMERIA', 'LABORATORIO_CLINICO', 'MEDICINA', 'ODONTOLOGIA', 'PSICOLOGIA_CLINICA'],
-        'UEDL': ['ADMIN_EMPRESAS_DIST', 'AGRONEGOCIOS_DIST', 'COMUNICACION_DIST', 'CONTABILIDAD_DIST', 'DERECHO_DIST', 'EDUCACION_BASICA_DIST', 'EDUCACION_INICIAL_DIST', 'PEDAGOGIA_INFO_DIST']
-    };
-
     if (facultadSelect && carreraSelect) {
-        // Guardamos una copia de todas las opciones originales del HTML
-        const opcionesOriginales = Array.from(carreraSelect.options);
+        const opcionesOriginales = Array.from(carreraSelect.options).map(function (opcion) {
+            return opcion.cloneNode(true);
+        });
 
         function filtrarCarreras() {
             const facultadSeleccionada = facultadSelect.value;
-            const carrerasValidas = mapaCarreras[facultadSeleccionada] || [];
-
-            // Limpiar opciones actuales
+            const valorActual = carreraSelect.value;
             carreraSelect.innerHTML = '';
 
-            let primeraOpcionPuesta = false;
-
-            opcionesOriginales.forEach(opcion => {
-                // Si la opción está dentro del arreglo de la facultad seleccionada o está vacía
-                if (carrerasValidas.includes(opcion.value) || opcion.value === "") {
-                    carreraSelect.appendChild(opcion);
-                    if (!primeraOpcionPuesta && opcion.value) {
-                        carreraSelect.value = opcion.value;
-                        primeraOpcionPuesta = true;
+            let seleccionValida = false;
+            opcionesOriginales.forEach(function (opcion) {
+                const clon = opcion.cloneNode(true);
+                if (!clon.value || clon.dataset.facultad === facultadSeleccionada) {
+                    carreraSelect.appendChild(clon);
+                    if (clon.value === valorActual) {
+                        seleccionValida = true;
                     }
                 }
             });
+
+            if (seleccionValida) {
+                carreraSelect.value = valorActual;
+            }
         }
 
-        // Ejecutar al cargar y al cambiar de facultad
         filtrarCarreras();
         facultadSelect.addEventListener('change', filtrarCarreras);
     }
 
-    // 2. SUGERENCIA AUTOMÁTICA DE NOMBRES
     if (correoInput && nombresInput && apellidosInput) {
-        correoInput.addEventListener('blur', function() {
-            const correo = this.value.trim().toLowerCase();
-            if (correo.includes('@unl.edu.ec')) {
-                const parteUsuario = correo.split('@')[0];
-                const partes = parteUsuario.split('.');
+        let nombresEditado = false;
+        let apellidosEditado = false;
 
-                if (partes.length >= 2) {
-                    const capitalizar = (str) => str.charAt(0).toUpperCase() + str.slice(1);
-                    let nombreSugerido = capitalizar(partes[0]);
-                    let apellidoSugerido = '';
-
-                    if (partes.length === 2) {
-                        apellidoSugerido = capitalizar(partes[1]);
-                    } else if (partes.length >= 3) {
-                        if (partes[1].length === 1) {
-                            apellidoSugerido = capitalizar(partes[2]);
-                        } else {
-                            apellidoSugerido = capitalizar(partes[1]) + ' ' + capitalizar(partes[2]);
-                        }
-                    }
-
-                    if (!nombresInput.value) nombresInput.value = nombreSugerido;
-                    if (!apellidosInput.value) apellidosInput.value = apellidoSugerido;
-                }
-            }
+        nombresInput.addEventListener('input', function () {
+            nombresEditado = true;
         });
+        apellidosInput.addEventListener('input', function () {
+            apellidosEditado = true;
+        });
+
+        function capitalizar(texto) {
+            return texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : '';
+        }
+
+        function sugerirDesdeCorreo() {
+            const correo = correoInput.value.trim().toLowerCase();
+            const parteUsuario = correo.split('@')[0];
+            const partes = parteUsuario.split('.').filter(function (parte) {
+                return parte.length > 1;
+            });
+            if (!partes.length) {
+                return;
+            }
+            if (!nombresEditado) {
+                nombresInput.value = capitalizar(partes[0].replaceAll('_', ' '));
+            }
+            if (!apellidosEditado) {
+                apellidosInput.value = partes.slice(1).map(function (parte) {
+                    return capitalizar(parte.replaceAll('_', ' '));
+                }).join(' ');
+            }
+        }
+
+        correoInput.addEventListener('input', sugerirDesdeCorreo);
+        correoInput.addEventListener('blur', sugerirDesdeCorreo);
     }
 });
 </script>
