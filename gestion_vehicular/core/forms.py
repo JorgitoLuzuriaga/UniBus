@@ -146,7 +146,6 @@ class CarreraPorFacultadSelect(forms.Select):
 CARRERAS_UNIFICADAS = []
 for lista_carreras in CARRERAS_POR_FACULTAD.values():
     for codigo, nombre_legible in lista_carreras:
-        # Evitamos duplicados si alguna carrera se repite
         if (codigo, nombre_legible) not in CARRERAS_UNIFICADAS:
             CARRERAS_UNIFICADAS.append((codigo, nombre_legible))
 
@@ -294,12 +293,32 @@ class LoginConCaptchaForm(AuthenticationForm):
 
 User = get_user_model()
 
+class ReservaForm(forms.ModelForm):
+    carrera_filtro = forms.ChoiceField(
+        choices=CARRERAS_UNIFICADAS, 
+        label="Filtrar Carrera", 
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select', 'onchange': 'filtrarEstudiantes()'})
+    )
+    estudiantes_seleccion = forms.ModelMultipleChoiceField(
+        queryset=Estudiante.objects.all(), 
+        label="Seleccionar Estudiantes", 
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'estudiante-checkbox'})
+    )
+    # ... conserva aquí los campos Meta o lógica interna de ReservaForm si los tenías ...
+
+
+CuentaUsuario = get_user_model()
+
+# ==========================================
+# FORMULARIO DE REGISTRO UNL
+# ==========================================
 class RegistroUnlForm(UserCreationForm):
     error_messages = {
         'password_mismatch': 'Las contraseñas no coinciden.',
     }
     
-    # Restablecemos el orden usando el campo correcto del modelo: 'correo'
     field_order = [
         'correo', 
         'correo_confirmacion', 
@@ -311,7 +330,6 @@ class RegistroUnlForm(UserCreationForm):
         'tipo_licencia'
     ]
 
-    # Declaramos el campo 'correo' de forma explícita
     correo = forms.EmailField(
         required=True,
         label='Correo institucional',
@@ -356,7 +374,7 @@ class RegistroUnlForm(UserCreationForm):
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
     carrera = forms.ChoiceField(
-        choices=CARRERAS_UNIFICADAS, # Usa tu lista unificada de opciones limpias
+        choices=CARRERAS_UNIFICADAS,
         widget=CarreraPorFacultadSelect(attrs={'class': 'form-select'}),
     )
     tipo_licencia = forms.ChoiceField(
@@ -374,7 +392,6 @@ class RegistroUnlForm(UserCreationForm):
     )
 
     class Meta:
-        # Enlazamos el formulario al modelo personalizado de tu proyecto (Cuenta)
         model = CuentaUsuario
         fields = [
             'correo', 
@@ -391,11 +408,9 @@ class RegistroUnlForm(UserCreationForm):
         self.verificar_correo = verificar_correo
         super().__init__(*args, **kwargs)
         
-        # Si UserCreationForm creó automáticamente un campo username por herencia, lo removemos
         if 'username' in self.fields:
             del self.fields['username']
             
-        # Estilos aplicados a las contraseñas heredadas
         for nombre in ('password1', 'password2'):
             self.fields[nombre].widget.attrs.update({'class': 'form-control'})
         self.fields['password1'].label = 'Contraseña'
