@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
 from .models import (
@@ -52,6 +52,13 @@ class CuentaAdmin(admin.ModelAdmin):
             obj.activo = False
 
         super().save_model(request, obj, form, change)
+
+        if obj.rol_asignado in roles_operativos and not (obj.nombres and obj.apellidos and obj.cedula):
+            obj.activo = False
+            obj.rol_asignado = Cuenta.RolesDisponibles.NINGUNO
+            obj.save(update_fields=['activo', 'rol_asignado'])
+            messages.error(request, 'No se asignó el rol: la cuenta necesita nombres, apellidos y cédula.')
+            return
 
         if obj.activo:
             facultad_seleccionada = obj.facultad or Facultad.FEIRNNR

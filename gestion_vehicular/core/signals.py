@@ -63,12 +63,12 @@ def gestionar_flujo_reserva(sender, instance, created, **kwargs):
                     link="/portal-estudiante/home/"
                 )
 
-            # D. Chofer (Recordatorio Informe)
-            Notificacion.objects.create(
-                destinatario=instance.conductor.cuenta,
-                mensaje="Recuerda llenar el INFORME DE VIAJE al finalizar la ruta.",
-                link=f"/conductor/viaje/{instance.id}/informe/"  # Link directo
-            )
+            if instance.conductor_id:
+                Notificacion.objects.create(
+                    destinatario=instance.conductor.cuenta,
+                    mensaje="Recuerda llenar el INFORME DE VIAJE al finalizar la ruta.",
+                    link=f"/conductor/viaje/{instance.id}/informe/"
+                )
 
         # 4. FINALIZADA -> AVISA ADMIN
         elif instance.estado == EstadoReserva.FINALIZADA:

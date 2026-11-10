@@ -366,6 +366,7 @@ class UnlSetPasswordForm(SetPasswordForm):
             'placeholder': 'Nueva contraseña',
         })
         self.fields['new_password2'].label = 'Confirmar nueva contraseña'
+        self.fields['new_password2'].help_text = 'Vuelve a escribir la nueva contraseña.'
         self.fields['new_password2'].widget.attrs.update({
             'class': 'form-control',
             'placeholder': 'Repite la nueva contraseña',

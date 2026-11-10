@@ -83,7 +83,7 @@ def dashboard_redirect(request):
         return redirect('estudiante_home')
     elif hasattr(user, 'conductor_perfil'):
         return redirect('conductor_home')
-    elif user.is_superuser:
+    elif user.is_superuser or user.is_staff:
         return redirect('/admin/')
     else:
         return render(request, 'core/error_rol.html', {'mensaje': 'Usuario sin rol asignado.'})
@@ -172,23 +172,24 @@ def registrar_usuario(request):
     if request.method == 'POST':
         correo_intento = (request.POST.get('correo') or '').strip().lower()
         ip = _ip_cliente(request)
-        mensaje_bloqueo = _bloqueo_de_registro(ip, correo_intento)
-        IntentoRegistro.objects.filter(creado__lt=timezone.now() - timedelta(days=1)).delete()
-        IntentoRegistro.objects.create(ip=ip or '0.0.0.0', correo=correo_intento[:254])
         form = RegistroUnlForm(request.POST)
-        if mensaje_bloqueo:
-            form.add_error(None, mensaje_bloqueo)
-        elif form.is_valid():
-            datos = form.datos_para_confirmar()
-            codigo = _nuevo_codigo()
-            try:
-                enviar_codigo_verificacion(datos['correo'], datos['nombres'], codigo)
-            except Exception as exc:
-                logger.exception('No se envió el código a %s', datos['correo'])
-                form.add_error('correo', _mensaje_fallo_correo(exc))
+        if form.is_valid():
+            mensaje_bloqueo = _bloqueo_de_registro(ip, correo_intento)
+            if mensaje_bloqueo:
+                form.add_error(None, mensaje_bloqueo)
             else:
-                _guardar_solicitud(request, datos, codigo)
-                return redirect('confirmar_codigo_registro')
+                IntentoRegistro.objects.filter(creado__lt=timezone.now() - timedelta(days=1)).delete()
+                IntentoRegistro.objects.create(ip=ip or '0.0.0.0', correo=correo_intento[:254])
+                datos = form.datos_para_confirmar()
+                codigo = _nuevo_codigo()
+                try:
+                    enviar_codigo_verificacion(datos['correo'], datos['nombres'], codigo)
+                except Exception as exc:
+                    logger.exception('No se envió el código a %s', datos['correo'])
+                    form.add_error('correo', _mensaje_fallo_correo(exc))
+                else:
+                    _guardar_solicitud(request, datos, codigo)
+                    return redirect('confirmar_codigo_registro')
     else:
         form = RegistroUnlForm()
     return render(request, 'registration/registro.html', {'form': form})
